@@ -1,0 +1,1905 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="電線管選定">
+    <meta name="theme-color" content="#2c3e50">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="description" content="内線規程に基づく電線管の占積率計算・サイズ選定ツール">
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+    <title>電線管選定シミュレーター</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --bg-color: #f5f7fa;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 30px;
+            font-size: 24px;
+            border-bottom: 2px solid #edf2f7;
+            padding-bottom: 15px;
+        }
+
+        .main-layout { display: flex; flex-wrap: wrap; gap: 30px; }
+        .panel { flex: 1; min-width: 340px; }
+
+        .output-panel {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 25px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .section-title { font-weight: bold; margin-bottom: 10px; color: #4a5568; font-size: 15px; }
+
+        .flex-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        .flex-group select { flex: 1; min-width: 0; }
+
+        .cable-adder {
+            display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px;
+            background: #f7fafc; padding: 15px; border-radius: 6px; border: 1px solid #edf2f7;
+        }
+        .adder-row { display: flex; gap: 10px; align-items: center; }
+        .adder-row select { flex: 2; min-width: 0; border: 1px solid #cbd5e0; }
+        .adder-row input { width: 70px; }
+
+        select, input {
+            padding: 10px; border: 1px solid #cbd5e0; border-radius: 6px;
+            font-size: 14px; background-color: #fff;
+        }
+
+        button {
+            padding: 10px 15px; border: none; border-radius: 6px; font-weight: bold;
+            cursor: pointer; transition: opacity 0.2s;
+        }
+        .btn-add { background-color: #3182ce; color: white; width: 100%; margin-top: 5px; }
+        .btn-delete { background-color: #e53e3e; color: white; padding: 5px 10px; font-size: 12px; }
+        .btn-clear { background-color: #a0aec0; color: white; padding: 4px 10px; font-size: 12px; }
+        button:hover { opacity: 0.9; }
+
+        /* 品種タブ */
+        .group-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+        .group-tab {
+            background: #fff; color: #4a5568; border: 1px solid #cbd5e0;
+            padding: 8px 12px; font-size: 13px; position: relative;
+        }
+        .group-tab.active { background: #2c5282; color: #fff; border-color: #2c5282; }
+        .group-tab .cnt {
+            position: absolute; top: -7px; right: -7px; min-width: 18px; height: 18px;
+            padding: 0 4px; box-sizing: border-box; border-radius: 9px;
+            background: #e53e3e; color: #fff; font-size: 11px; line-height: 18px; text-align: center;
+        }
+
+        .step-row { display: flex; align-items: center; gap: 10px; font-size: 13px; color: #4a5568; }
+        .step-btns { display: flex; gap: 4px; }
+        .step-btn { background: #fff; border: 1px solid #cbd5e0; color: #4a5568; padding: 5px 10px; font-size: 13px; }
+        .step-btn.active { background: #3182ce; border-color: #3182ce; color: #fff; }
+
+        /* マトリクス */
+        .matrix-wrap { overflow-x: auto; }
+        .matrix { border-collapse: separate; border-spacing: 4px; width: 100%; }
+        .matrix th { font-size: 12px; color: #4a5568; font-weight: bold; padding: 2px 4px; white-space: nowrap; }
+        .matrix th.row-h { text-align: right; padding-right: 6px; }
+        .matrix td { padding: 0; }
+        .cell-btn {
+            position: relative; width: 100%; min-width: 72px; height: 44px; padding: 2px;
+            background: #fff; border: 1px solid #cbd5e0; color: #2d3748;
+            font-weight: normal; font-size: 11px; line-height: 1.2;
+            user-select: none; -webkit-user-select: none; touch-action: manipulation;
+        }
+        .cell-btn:hover { border-color: #3182ce; background: #ebf8ff; }
+        .cell-btn:active { transform: scale(0.96); }
+        .cell-btn .dia { color: #718096; }
+        .cell-btn.has { border-width: 2px; }
+        .cell-btn .qty {
+            position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 4px;
+            box-sizing: border-box; border-radius: 10px; color: #fff; font-size: 11px; font-weight: bold;
+            line-height: 20px; text-align: center; text-shadow: 0 0 2px rgba(0,0,0,0.5);
+        }
+        .cell-empty { background: #f1f5f9; border-radius: 6px; height: 44px; }
+        .matrix-hint { font-size: 11px; color: #a0aec0; }
+
+        /* 一覧の本数操作 */
+        .qty-ctrl { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+        .qty-ctrl button {
+            width: 32px; height: 32px; padding: 0; font-size: 18px; line-height: 1;
+            background: #edf2f7; color: #2d3748; border: 1px solid #cbd5e0;
+        }
+        .qty-ctrl input {
+            width: 46px; padding: 6px 2px; text-align: center; font-size: 14px; font-weight: bold;
+        }
+        .qty-ctrl .btn-delete { width: auto; height: 32px; padding: 0 8px; font-size: 12px; background: #e53e3e; color: #fff; border: none; }
+
+        .list-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .list-header .section-title { margin-bottom: 0; }
+
+        .cable-list {
+            background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 6px;
+            padding: 10px; margin-bottom: 15px; max-height: 220px; overflow-y: auto;
+        }
+        .cable-list .empty { color: #a0aec0; font-size: 13px; text-align: center; padding: 10px; }
+
+        .cable-item {
+            display: flex; justify-content: space-between; align-items: center; gap: 8px;
+            padding: 8px; background: white; border: 1px solid #edf2f7; border-radius: 4px;
+            margin-bottom: 6px; font-size: 14px;
+        }
+        .cable-item.hl { border-color: #3182ce; background: #ebf8ff; }
+        .cable-item .left { display: flex; align-items: center; gap: 8px; }
+        .cable-item .sub { color: #718096; font-size: 12px; }
+
+        .no-badge {
+            display: inline-flex; align-items: center; justify-content: center;
+            width: 22px; height: 22px; border-radius: 50%; color: #fff;
+            font-size: 12px; font-weight: bold; flex-shrink: 0;
+            text-shadow: 0 0 2px rgba(0,0,0,0.6);
+        }
+
+        .judge-box {
+            background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 6px;
+            padding: 12px; font-size: 13px; color: #4a5568; margin-bottom: 15px;
+        }
+        .judge-box label { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+        .judge-box select { padding: 6px; font-size: 13px; }
+        .judge-note { font-size: 12px; color: #718096; margin-top: 8px; line-height: 1.6; }
+
+        .percentage-display { font-size: 42px; font-weight: 800; margin-bottom: 5px; }
+
+        .status-badge {
+            padding: 6px 16px; border-radius: 20px; font-weight: bold; font-size: 14px;
+            margin-bottom: 8px; text-align: center;
+        }
+        .status-safe { background-color: #edfbd2; color: var(--success-color); }
+        .status-warning { background-color: #fffaf0; color: var(--warning-color); }
+        .status-danger { background-color: #fff5f5; color: var(--danger-color); }
+
+        .judge-reason { font-size: 12px; color: #718096; margin-bottom: 18px; text-align: center; line-height: 1.6; }
+
+        .conduit-container { position: relative; width: 320px; max-width: 100%; aspect-ratio: 1 / 1; }
+        canvas {
+            width: 100%; height: 100%; box-sizing: border-box; display: block;
+            background-color: #1a202c; border-radius: 50%;
+            border: 10px solid #718096; box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            cursor: crosshair; touch-action: manipulation;
+        }
+
+        .tooltip {
+            position: absolute; pointer-events: none; display: none;
+            background: rgba(26,32,44,0.92); color: #fff; font-size: 12px;
+            padding: 6px 10px; border-radius: 6px; white-space: nowrap; z-index: 5;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }
+
+        .canvas-opts { font-size: 12px; color: #4a5568; margin-top: 10px; display: flex; gap: 14px; }
+        .canvas-opts label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+
+        .legend { width: 100%; margin-top: 12px; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: #4a5568; }
+        .legend-item { display: flex; align-items: center; gap: 6px; }
+
+        .info-table {
+            width: 100%; border-collapse: collapse; font-size: 13px; color: #4a5568;
+        }
+        .info-table th, .info-table td { padding: 6px; text-align: left; border-bottom: 1px solid #edf2f7; }
+
+        /* 全サイズ占積率一覧 */
+        .size-table-wrap { margin-top: 30px; }
+        .size-table-wrap .section-title span { font-weight: normal; font-size: 12px; color: #718096; margin-left: 8px; }
+        .size-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .size-table th {
+            background: #edf2f7; color: #4a5568; padding: 8px; text-align: center;
+            border: 1px solid #e2e8f0; white-space: nowrap;
+        }
+        .size-table td { padding: 7px 8px; text-align: center; border: 1px solid #e2e8f0; }
+        .size-table tbody tr { cursor: pointer; }
+        .size-table tbody tr:hover { background: #f7fafc; }
+        .size-table tr.current td { background: #ebf8ff; font-weight: bold; }
+        .size-table tr.min-ok td:first-child::after {
+            content: "最小"; margin-left: 6px; font-size: 11px; color: #fff;
+            background: var(--success-color); padding: 1px 6px; border-radius: 8px;
+        }
+        .bar-cell { min-width: 160px; }
+        .bar { position: relative; height: 12px; background: #edf2f7; border-radius: 6px; overflow: hidden; }
+        .bar .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 6px; }
+        .bar .mark { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #2d3748; }
+        .ok { color: var(--success-color); font-weight: bold; }
+        .ng { color: var(--danger-color); font-weight: bold; }
+        .na { color: #a0aec0; }
+
+        /* シート切替タブ */
+        .sheet-tabs { display: flex; gap: 6px; margin: -10px 0 24px; border-bottom: 2px solid #e2e8f0; }
+        .sheet-tab {
+            background: none; color: #718096; border-radius: 8px 8px 0 0; padding: 10px 18px;
+            font-size: 15px; border: 1px solid transparent; margin-bottom: -2px;
+        }
+        .sheet-tab.active { color: #2c3e50; background: #fff; border-color: #e2e8f0; border-bottom: 2px solid #fff; }
+        .sheet[hidden] { display: none !important; }
+        .sheet-tab .sm { display: none; }
+
+        /* モーター→ケーブル選定シート */
+        .m-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px 18px; margin-bottom: 20px; }
+        .m-field label { display: block; font-size: 13px; font-weight: bold; color: #4a5568; margin-bottom: 6px; }
+        .m-field select, .m-field input { width: 100%; box-sizing: border-box; }
+        .m-field .hint { font-size: 11px; color: #a0aec0; margin-top: 4px; }
+        .seg { display: flex; border: 1px solid #cbd5e0; border-radius: 6px; overflow: hidden; }
+        .seg button { flex: 1; border-radius: 0; background: #fff; color: #4a5568; padding: 10px 6px; font-size: 14px; border-right: 1px solid #cbd5e0; }
+        .seg button:last-child { border-right: none; }
+        .seg button.active { background: #2c5282; color: #fff; }
+
+        .m-summary { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 18px; }
+        .m-chip { background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; font-size: 13px; color: #4a5568; }
+        .m-chip b { display: block; font-size: 20px; color: #2c3e50; margin-top: 2px; }
+
+        .m-section { border: 1px solid #e2e8f0; border-radius: 10px; padding: 16px; margin-bottom: 18px; }
+        .m-section h3 { margin: 0 0 4px; font-size: 16px; color: #2c3e50; }
+        .m-section .sub { font-size: 12px; color: #718096; margin-bottom: 12px; line-height: 1.6; }
+        .m-result { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .m-result .big { font-size: 26px; font-weight: 800; color: var(--success-color); }
+        .m-result .big.ng { color: var(--danger-color); }
+        .m-result .detail { font-size: 13px; color: #4a5568; line-height: 1.6; }
+        .btn-send { background: #3182ce; color: #fff; font-size: 13px; padding: 8px 12px; }
+        .m-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .m-table th { background: #edf2f7; color: #4a5568; padding: 7px 6px; border: 1px solid #e2e8f0; white-space: nowrap; }
+        .m-table td { padding: 6px; border: 1px solid #e2e8f0; text-align: center; }
+        .m-table tr.pick td { background: #f0fff4; font-weight: bold; }
+        .m-table-wrap { overflow-x: auto; }
+        .par-toggle { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 10px; font-size: 13px; color: #2c5282; background: #ebf8ff; border: 1px solid #bee3f8; border-radius: 6px; padding: 8px 10px; }
+        .par-toggle .seg { flex: 1; min-width: 260px; }
+        .par-toggle .seg button { font-size: 13px; padding: 8px 6px; }
+        .par-note { background: #fffaf0; border: 1px solid #fbd38d; color: #975a16; border-radius: 6px; padding: 8px 10px; font-size: 12px; line-height: 1.6; margin-bottom: 10px; }
+        .m-notes { font-size: 12px; color: #718096; line-height: 1.8; background: #f7fafc; border-radius: 8px; padding: 12px 16px; }
+        .m-notes b { color: #4a5568; }
+        .toast {
+            position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
+            background: #2d3748; color: #fff; padding: 10px 18px; border-radius: 20px; font-size: 14px;
+            z-index: 50; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+        }
+        .toast.show { opacity: 1; }
+
+        /* 計算方法・解説シート */
+        .g-toc { background: #f7fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 14px; line-height: 2; }
+        .g-toc a { color: #2b6cb0; text-decoration: none; margin-right: 14px; white-space: nowrap; }
+        .g-sec { border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 14px; overflow: hidden; }
+        .g-sec > summary { cursor: pointer; padding: 14px 16px; font-size: 16px; font-weight: bold; color: #2c3e50; background: #f7fafc; list-style: none; display: flex; align-items: center; gap: 10px; }
+        .g-sec > summary::-webkit-details-marker { display: none; }
+        .g-sec > summary::before { content: "▶"; font-size: 11px; color: #718096; transition: transform 0.2s; }
+        .g-sec[open] > summary::before { transform: rotate(90deg); }
+        .g-sec .num { background: #2c5282; color: #fff; border-radius: 50%; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; flex-shrink: 0; }
+        .g-body { padding: 4px 18px 18px; font-size: 14px; line-height: 1.8; color: #2d3748; }
+        .g-body h4 { margin: 18px 0 6px; font-size: 14px; color: #2c5282; border-left: 4px solid #3182ce; padding-left: 8px; }
+        .g-body p { margin: 6px 0; }
+        .g-body ul { margin: 6px 0; padding-left: 20px; }
+        .formula { background: #1a202c; color: #f7fafc; border-radius: 8px; padding: 12px 16px; margin: 10px 0; font-family: 'Consolas', 'Menlo', monospace; font-size: 14px; line-height: 1.9; overflow-x: auto; white-space: normal; }
+        .formula .c { color: #a0aec0; font-size: 12px; }
+        .formula b { color: #fbd38d; font-weight: normal; }
+        .g-point { background: #f0fff4; border: 1px solid #9ae6b4; border-radius: 8px; padding: 10px 14px; margin: 10px 0; font-size: 13px; }
+        .g-warn { background: #fffaf0; border: 1px solid #fbd38d; border-radius: 8px; padding: 10px 14px; margin: 10px 0; font-size: 13px; color: #744210; }
+        .g-ex { background: #ebf8ff; border: 1px solid #bee3f8; border-radius: 8px; padding: 10px 14px; margin: 10px 0; font-size: 13px; }
+        .g-ex .step { display: grid; grid-template-columns: 22px 1fr; gap: 4px; margin: 3px 0; }
+        .g-table { border-collapse: collapse; font-size: 13px; margin: 8px 0; min-width: 100%; }
+        .g-table th { background: #edf2f7; padding: 6px 8px; border: 1px solid #e2e8f0; white-space: nowrap; }
+        .g-table td { padding: 5px 8px; border: 1px solid #e2e8f0; text-align: center; }
+        .g-scroll { overflow-x: auto; }
+        .g-svg { width: 100%; max-width: 560px; display: block; margin: 10px auto; }
+
+        /* スマホ用：上部固定の結果バー */
+        .mobile-bar { display: none; }
+
+        @media (max-width: 760px) {
+            body { padding: 0 0 env(safe-area-inset-bottom); background: #fff; }
+            .container { padding: 12px; border-radius: 0; box-shadow: none; }
+            h1 { font-size: 17px; margin: 0 0 14px; padding-bottom: 10px; }
+            .main-layout { gap: 18px; }
+            .panel { min-width: 100%; box-sizing: border-box; }
+            .output-panel { padding: 16px 10px; }
+            /* iOSで入力時に勝手に拡大されないよう16px以上 */
+            select, input { font-size: 16px; }
+            .flex-group { flex-direction: column; gap: 8px; }
+            .cable-adder { padding: 10px; }
+            .group-tabs { gap: 5px; }
+            .group-tab { flex: 1 1 calc(25% - 5px); padding: 10px 2px; font-size: 13px; }
+            .step-row { flex-wrap: wrap; gap: 6px; }
+            .step-btns { flex: 1; }
+            .step-btn { flex: 1; padding: 8px 0; font-size: 14px; }
+            .matrix { border-spacing: 3px; }
+            .cell-btn { min-width: 0; height: 46px; font-size: 12px; }
+            .matrix th { font-size: 11px; }
+            .cable-list { max-height: none; }
+            .cable-item { flex-wrap: wrap; padding: 8px 6px; }
+            .qty-ctrl { margin-left: auto; }
+            .qty-ctrl button { width: 40px; height: 40px; font-size: 20px; }
+            .qty-ctrl input { width: 50px; padding: 8px 2px; }
+            .qty-ctrl .btn-delete { height: 40px; }
+            .judge-box label { align-items: flex-start; }
+            .judge-box input[type=checkbox] { width: 20px; height: 20px; flex-shrink: 0; }
+            .percentage-display { font-size: 36px; }
+            .conduit-container { width: min(320px, 100%); }
+            .canvas-opts label { padding: 6px 0; }
+            .canvas-opts input { width: 18px; height: 18px; }
+            .size-table { font-size: 12px; }
+            .size-table th, .size-table td { padding: 8px 3px; }
+            .size-table .bar-cell { display: none; }
+            .sheet-tabs { margin: -4px -12px 16px; padding: 0 8px; }
+            .sheet-tab { flex: 1; padding: 10px 4px; font-size: 14px; white-space: nowrap; }
+            .sheet-tab .lg { display: none; }
+            .sheet-tab .sm { display: inline; }
+            .m-form { grid-template-columns: 1fr 1fr; gap: 12px 10px; }
+            .m-field.full { grid-column: 1 / -1; }
+            .m-field .hint { font-size: 10px; }
+            .seg button { padding: 10px 2px; font-size: 13px; white-space: nowrap; letter-spacing: -0.02em; }
+            .m-table { font-size: 12px; }
+            .m-table th, .m-table td { padding: 6px 3px; }
+            .m-section { padding: 12px 10px; }
+            body.sheet-motor .mobile-bar { display: none; }
+            .g-body { padding: 4px 12px 14px; font-size: 13px; }
+            .g-sec > summary { font-size: 15px; padding: 12px; }
+            .formula { font-size: 12px; padding: 10px 12px; }
+
+            .mobile-bar {
+                display: flex; align-items: center; gap: 8px;
+                position: sticky; top: 0; z-index: 20;
+                padding: 8px 12px; padding-top: calc(8px + env(safe-area-inset-top));
+                background: #2c3e50; color: #fff; font-size: 13px;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            }
+            .mobile-bar .mb-conduit { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.9; }
+            .mobile-bar .mb-rate { font-size: 20px; font-weight: 800; }
+            .mobile-bar .mb-judge { padding: 3px 8px; border-radius: 10px; font-weight: bold; font-size: 12px; background: #4a5568; white-space: nowrap; }
+            .mobile-bar .mb-judge.ok { background: var(--success-color); color: #fff; }
+            .mobile-bar .mb-judge.ng { background: var(--danger-color); color: #fff; }
+            .mobile-bar button { background: #fff; color: #2c3e50; padding: 6px 10px; font-size: 12px; white-space: nowrap; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- スマホ時のみ表示：スクロールしても結果が見える固定バー -->
+<div class="mobile-bar" id="mobile-bar">
+    <div class="mb-conduit" id="mb-conduit">--</div>
+    <div class="mb-rate" id="mb-rate">0.0%</div>
+    <div class="mb-judge" id="mb-judge">未選択</div>
+    <button id="mb-jump">断面図</button>
+</div>
+
+<div class="container">
+    <h1>電線管選定シミュレーター</h1>
+
+    <div class="sheet-tabs" role="tablist">
+        <button class="sheet-tab active" data-sheet="conduit">電線管選定</button>
+        <button class="sheet-tab" data-sheet="motor"><span class="lg">モーター → ケーブル</span><span class="sm">モーター</span></button>
+        <button class="sheet-tab" data-sheet="guide"><span class="lg">計算方法・解説</span><span class="sm">解説</span></button>
+    </div>
+
+    <section class="sheet" id="sheet-conduit">
+    <div class="main-layout">
+        <!-- 左側：入力設定パネル -->
+        <div class="panel">
+            <div class="section-title">① 電線管の選定</div>
+            <div class="flex-group">
+                <select id="conduit-type-select">
+                    <option value="E">E：ネジなし電線管</option>
+                    <option value="G">G：厚鋼電線管</option>
+                    <option value="VE">VE：硬質塩化ビニル管</option>
+                    <option value="PF">PF：合成樹脂製可とう管</option>
+                    <option value="KMV" selected>KMV：ケイフレックス (サンケイ)</option>
+                    <option value="FEP">FEP：波付硬質合成樹脂管</option>
+                </select>
+                <select id="conduit-size-select"></select>
+            </div>
+            <div style="font-size: 13px; color: #718096; margin-top: -15px; margin-bottom: 20px;" id="conduit-info-text">
+                選択中電線管の内径: -- mm
+            </div>
+
+            <div class="section-title">② ケーブルの追加</div>
+            <div class="cable-adder">
+                <div class="group-tabs" id="group-tabs"></div>
+                <div class="step-row">
+                    <span>1タップで追加する本数</span>
+                    <div class="step-btns" id="step-btns"></div>
+                </div>
+                <div class="matrix-wrap" id="matrix-wrap"></div>
+                <div class="matrix-hint">マスをタップで追加／右クリックで1本減らす。マス右上の数字は現在の本数。</div>
+            </div>
+
+            <div class="list-header">
+                <div class="section-title">現在の選択ケーブル一覧</div>
+                <button class="btn-clear" id="btn-clear">全削除</button>
+            </div>
+            <div class="cable-list" id="cable-list-container"></div>
+
+            <div class="section-title">③ 判定基準</div>
+            <div class="judge-box">
+                <label>判定モード
+                    <select id="judge-mode-select">
+                        <option value="auto" selected>自動（構成から判定）</option>
+                        <option value="32">32%以下で判定</option>
+                        <option value="48">48%以下で判定</option>
+                    </select>
+                </label>
+                <label>
+                    <input type="checkbox" id="easy-pull-check" checked>
+                    屈曲が少なく、引き入れ・引き替えが容易（同一太さ時に48%を適用）
+                </label>
+                <div class="judge-note">
+                    自動判定の考え方：<br>
+                    ・同一品種・同一サイズのみ → 48%以下（上のチェックを外すと32%）<br>
+                    ・太さの異なる電線・ケーブルが混在 → 32%以下<br>
+                    ・ケーブル1条のみ → 上記に加え「管内径 ≧ ケーブル外径 × 1.5」も確認<br>
+                    ※ 適用条件は最新の内線規程の条文で確認してください。
+                </div>
+            </div>
+        </div>
+
+        <!-- 右側：計算結果・グラフィックパネル -->
+        <div class="panel output-panel">
+            <div style="color: #718096; font-size: 14px;">総電線断面積 占積率</div>
+            <div id="percentage-display" class="percentage-display">0.0 %</div>
+            <div id="status-badge" class="status-badge">ケーブルを追加してください</div>
+            <div id="judge-reason" class="judge-reason"></div>
+
+            <div class="conduit-container" id="conduit-container">
+                <canvas id="conduit-canvas"></canvas>
+                <div class="tooltip" id="tooltip"></div>
+            </div>
+            <div class="canvas-opts">
+                <label><input type="checkbox" id="show-no-check" checked> 番号表示</label>
+                <label><input type="checkbox" id="show-name-check"> 品名表示（大径のみ）</label>
+            </div>
+            <div class="legend" id="legend"></div>
+        </div>
+    </div>
+
+    <!-- 全サイズ占積率一覧 -->
+    <div class="size-table-wrap">
+        <div class="section-title">④ 全サイズ占積率一覧 <span id="size-table-caption"></span></div>
+        <table class="size-table">
+            <thead>
+                <tr>
+                    <th>呼び径</th>
+                    <th>内径 (mm)</th>
+                    <th>占積率</th>
+                    <th class="bar-cell">グラフ（縦線＝基準）</th>
+                    <th>1.5倍確認</th>
+                    <th>判定</th>
+                </tr>
+            </thead>
+            <tbody id="size-table-body"></tbody>
+        </table>
+        <div style="font-size: 12px; color: #718096; margin-top: 6px;">行をクリック（タップ）するとその呼び径を選択します。</div>
+    </div>
+    </section>
+
+    <!-- ================= モーター → ケーブル選定シート ================= -->
+    <section class="sheet" id="sheet-motor" hidden>
+        <div class="m-form">
+            <div class="m-field">
+                <label>電圧（三相3線式）</label>
+                <div class="seg" id="m-volt">
+                    <button data-v="200" class="active">200V</button>
+                    <button data-v="400">400V</button>
+                </div>
+            </div>
+            <div class="m-field">
+                <label>始動方式</label>
+                <div class="seg" id="m-start">
+                    <button data-s="dol" class="active">直入れ</button>
+                    <button data-s="yd">スターデルタ</button>
+                </div>
+            </div>
+            <div class="m-field full">
+                <label>電動機容量</label>
+                <select id="m-kw"></select>
+                <div class="hint" id="m-kw-hint"></div>
+            </div>
+            <div class="m-field full" id="m-custom-wrap" hidden>
+                <label>電流を直接入力 (A)</label>
+                <input type="number" id="m-custom-a" min="0.1" step="0.1" value="20" inputmode="decimal">
+            </div>
+            <div class="m-field">
+                <label>ケーブル種類</label>
+                <select id="m-cable">
+                    <option value="AUTO">自動（〜8sq CV 3心／14sq〜 CVT）</option>
+                    <option value="CV3">CV 3心のみ</option>
+                    <option value="CVT">CVTのみ</option>
+                </select>
+            </div>
+            <div class="m-field">
+                <label>布設方法</label>
+                <select id="m-lay">
+                    <option value="air">気中・暗きょ</option>
+                    <option value="conduit">電線管内(1条)</option>
+                </select>
+            </div>
+            <div class="m-field">
+                <label>配線用遮断器 (AT)</label>
+                <select id="m-mccb"></select>
+                <div class="hint" id="m-mccb-hint"></div>
+            </div>
+            <div class="m-field">
+                <label>周囲温度 (℃)</label>
+                <input type="number" id="m-temp" min="10" max="60" step="1" value="40" inputmode="numeric">
+                <div class="hint">基準40℃から補正</div>
+            </div>
+            <div class="m-field">
+                <label>多条布設などの低減率</label>
+                <input type="number" id="m-red" min="0.3" max="1" step="0.05" value="1.0" inputmode="decimal">
+                <div class="hint">低減なしは 1.0</div>
+            </div>
+            <div class="m-field">
+                <label>許容電圧降下 (%)</label>
+                <input type="number" id="m-vd" min="0.5" max="10" step="0.5" value="2" inputmode="decimal">
+                <div class="hint">分岐回路の目安 2%</div>
+            </div>
+            <div class="m-field">
+                <label id="m-lenA-label">こう長 (m)</label>
+                <input type="number" id="m-lenA" min="1" step="1" value="30" inputmode="numeric">
+            </div>
+            <div class="m-field">
+                <label>並列2条時の低減率</label>
+                <input type="number" id="m-parred" min="0.3" max="1" step="0.05" value="1.0" inputmode="decimal">
+                <div class="hint">別管・離隔布設なら 1.0</div>
+            </div>
+            <div class="m-field">
+                <label>並列の条件</label>
+                <label style="font-weight:normal;display:flex;gap:6px;align-items:center;margin-top:10px">
+                    <input type="checkbox" id="m-parmin" checked style="width:20px;height:20px;flex-shrink:0"> 50mm²以上に限る
+                </label>
+            </div>
+            <div class="m-field" id="m-lenB-wrap" hidden>
+                <label>始動器〜電動機 こう長 (m)</label>
+                <input type="number" id="m-lenB" min="1" step="1" value="10" inputmode="numeric">
+            </div>
+        </div>
+
+        <div class="m-summary" id="m-summary"></div>
+        <div id="m-sections"></div>
+
+        <div class="m-notes">
+            <b>計算の考え方</b><br>
+            ・規約電流：内線規程の三相誘導電動機の規約電流（200V／400V）。<br>
+            ・必要許容電流：規約電流 50A以下 → ×1.25、50A超 → ×1.1。<br>
+            ・許容電流：600V CV／CVT（JCS 0168、導体90℃・基底温度40℃）に、温度補正 √((90−θ)/(90−40)) と低減率を掛けた値。<br>
+            ・電圧降下：三相3線式 e = 30.8·L·I / (1000·A)。スターデルタの始動器〜電動機間は、巻線1相を2本の電線で往復するとみなし e = 35.6·L·Iφ / (1000·A)、Iφ = I/√3。合計を許容値と比較。<br>
+            ・スターデルタの始動器〜電動機間は6本（ケーブル2条）。必要許容電流は「Iφ×係数（Iφ = I/√3）」と「電動機分岐回路（①）の配線の許容電流の60%」の大きい方としています。<br>
+            ・ケーブル種類「自動」：8sq以下は CV 3心、14sq以上は CVT で選定します。最大サイズは CVT 250sq（CV 3心のみ選択時は100sq）。<br>
+            ・1条の選定結果が150sq以上になる場合は、2条並列での選定に切り替えられます（区間ごと）。<br>
+            ・配線用遮断器（自動）：内線規程 資料3-7-5 の考え方（直入れ：始動電流900%×6秒で動作しない／スターデルタ：Δ切替突入1600%で瞬時引外し750%が動作しない）による最小の標準定格。版やメーカー選定表（高効率モーター対応）で値が異なるため、実際の遮断器定格を手入力で上書きしてください。<br>
+            ・接地線：内線規程 1350-3表（C種・D種接地工事、銅、電源側過電流遮断器の定格による）。<br>
+            ・1条で該当サイズがない場合は、同種ケーブル2条の並列で再計算します（1条あたり電流 = I/2、許容電流は並列時低減率を掛けた値、電圧降下は断面積2倍として計算）。並列は同一種類・太さ・長さで、初期設定では50mm²以上に限定しています。<br>
+            <b>※ 実際の選定は、内線規程・電技解釈・メーカー資料・設計条件（遮断器との協調、短絡強度、始動時電圧降下など）で必ず確認してください。</b>
+        </div>
+    </section>
+
+    <!-- ================= 計算方法・解説シート ================= -->
+    <section class="sheet" id="sheet-guide" hidden>
+        <div class="g-toc">
+            <b>目次</b>：
+            <a href="#g1" data-g="g1">① 占積率</a><a href="#g2" data-g="g2">② 外径データ</a><a href="#g3" data-g="g3">③ 規約電流</a>
+            <a href="#g4" data-g="g4">④ 許容電流</a><a href="#g5" data-g="g5">⑤ 電圧降下</a><a href="#g6" data-g="g6">⑥ スターデルタ</a>
+            <a href="#g7" data-g="g7">⑦ 並列布設</a><a href="#g8" data-g="g8">⑧ 配線用遮断器</a><a href="#g9" data-g="g9">⑨ 接地線</a><a href="#g10" data-g="g10">⑩ 計算例</a>
+        </div>
+
+        <details class="g-sec" id="g1" open>
+            <summary><span class="num">1</span>電線管の占積率（電線管選定シート）</summary>
+            <div class="g-body">
+                <p>電線管の中に電線・ケーブルを詰め込みすぎると、引き入れが困難になったり、被覆が傷ついたり、放熱が悪くなったりします。そこで「管の断面積に対して、電線の断面積の合計が何％か」＝<b>占積率</b>で管の太さを判断します。</p>
+                <div class="formula">
+                    占積率 [%] = <b>Σ (π/4 × d²) × 本数</b> ÷ <b>(π/4 × D²)</b> × 100<br>
+                    <span class="c">d：電線・ケーブルの仕上外径 [mm] ／ D：電線管の内径 [mm]</span>
+                </div>
+                <h4>判定基準（内線規程の考え方）</h4>
+                <ul>
+                    <li><b>太さの異なる電線・ケーブルが混在</b>：32%以下</li>
+                    <li><b>同一太さのみ</b>で、管の屈曲が少なく引き入れ・引き替えが容易な場合：48%以下</li>
+                    <li><b>ケーブル1条のみ</b>：上記に加え、管内径 ≧ ケーブル外径 × 1.5 を確認</li>
+                </ul>
+                <div class="g-point">アプリの「自動」判定は、選択ケーブルが1品目だけなら同一太さ（チェックONで48%）、2品目以上なら32%を適用します。適用条件は工事条件で変わるため、判定モードで32%／48%を固定することもできます。</div>
+                <h4>全サイズ占積率一覧</h4>
+                <p>選択中の管種のすべての呼び径について、同じ計算を一括で行い、基準を満たす最小の呼び径に「最小」マークを付けています。ケーブル外径が管内径以上の場合は「入らない」と表示します。</p>
+                <h4>断面図</h4>
+                <p>断面図は、ケーブルを円として大きい順に管の底へ積み上げる簡易シミュレーションです。実寸比で描いていますが、実際の配置（より・曲がり）とは異なります。目安としてご覧ください。</p>
+            </div>
+        </details>
+
+        <details class="g-sec" id="g2">
+            <summary><span class="num">2</span>電線管内径・ケーブル外径データ</summary>
+            <div class="g-body">
+                <p>占積率の計算には、電線管の<b>内径</b>とケーブルの<b>仕上外径</b>を使います。</p>
+                <ul>
+                    <li>電線管内径：JIS・各メーカーの標準値（E・G・VE・PF・KMV・FEP）</li>
+                    <li>ケーブル外径：JIS・電線メーカーの標準仕上外径（約値）</li>
+                    <li>6.6kV CVT：メーカー間で数mmの差があるため、大きめの値を採用</li>
+                </ul>
+                <div class="g-warn">仕上外径はメーカー・製造ロットで差があります。占積率が基準ぎりぎりの場合は、使用するメーカーのカタログ値で確認してください。</div>
+            </div>
+        </details>
+
+        <details class="g-sec" id="g3">
+            <summary><span class="num">3</span>電動機の規約電流（モーター → ケーブル）</summary>
+            <div class="g-body">
+                <p>電動機の電線太さは、銘板の定格電流ではなく、内線規程に定められた<b>規約電流</b>（全負荷電流の標準値）を基準に選びます。メーカー・効率・極数による差を吸収した、設計用の統一値です。</p>
+                <div class="g-scroll" id="g-motor-table"></div>
+                <p>400Vは200Vの約1/2の電流になります。同じ容量でも電圧が高いほど電流が小さく、細い電線で済みます。</p>
+            </div>
+        </details>
+
+        <details class="g-sec" id="g4">
+            <summary><span class="num">4</span>必要許容電流とケーブルの許容電流</summary>
+            <div class="g-body">
+                <h4>必要許容電流（電線に求める電流の大きさ）</h4>
+                <p>電動機は始動・過負荷などで定格より大きな電流が流れることがあるため、規約電流に余裕を持たせます。</p>
+                <div class="formula">
+                    規約電流 I ≦ 50A のとき：必要許容電流 = I × <b>1.25</b><br>
+                    規約電流 I ＞ 50A のとき：必要許容電流 = I × <b>1.1</b>
+                </div>
+                <h4>ケーブルの許容電流（ケーブルが流せる電流）</h4>
+                <p>600V CV 3心・CVTの許容電流は、電線工業会規格 <b>JCS 0168</b>（導体最高許容温度90℃、基底周囲温度40℃）の値を使っています。布設方法で放熱が変わるため、値が異なります。</p>
+                <div class="g-scroll" id="g-amp-table"></div>
+                <h4>周囲温度・多条布設の補正</h4>
+                <div class="formula">
+                    補正後の許容電流 = 表の値 × <b>√((90 − θ) ÷ (90 − 40))</b> × 低減率<br>
+                    <span class="c">θ：周囲温度 [℃]（例：50℃なら √(40÷50) = 0.894）</span>
+                </div>
+                <p>導体が90℃まで上がってよいとき、周囲温度が高いほど「上がってよい温度幅」が減るので、流せる電流も減ります。発熱は電流の2乗に比例するため、平方根で補正します。</p>
+                <h4>ケーブル種類の自動選択</h4>
+                <p>「自動」では <b>8sq以下は CV 3心、14sq以上は CVT</b> から選びます。CVTは3本の単心をより合わせた構造で放熱がよく、同じ太さでもCV 3心より許容電流が1割ほど大きく、曲げやすく施工性もよいためです。最大サイズは CVT 250sq です。</p>
+                <div class="g-point">判定：<b>補正後の許容電流 ≧ 必要許容電流</b> かつ <b>電圧降下 ≦ 許容値</b>（⑤）の両方を満たす最も細いサイズを選びます。</div>
+            </div>
+        </details>
+
+        <details class="g-sec" id="g5">
+            <summary><span class="num">5</span>電圧降下</summary>
+            <div class="g-body">
+                <p>電線には抵抗があるため、長いほど・電流が大きいほど・細いほど、電動機に届く電圧が下がります。電圧が下がると、トルク不足や過熱の原因になります。</p>
+                <div class="formula">
+                    三相3線式：e = <b>30.8</b> × L × I ÷ (1000 × A)<br>
+                    単相2線式（往復）：e = <b>35.6</b> × L × I ÷ (1000 × A)<br>
+                    <span class="c">e：電圧降下 [V]　L：こう長 [m]　I：電流 [A]　A：導体断面積 [mm²]</span>
+                </div>
+                <h4>係数 30.8 と 35.6 の意味</h4>
+                <p>銅線の抵抗率（導電率97%）から、断面積 A [mm²]・長さ1mあたりの抵抗は約 <b>17.8 ÷ A</b> [mΩ] です。</p>
+                <ul>
+                    <li>単相2線式：行きと帰りの2本分 → 17.8 × 2 = <b>35.6</b></li>
+                    <li>三相3線式：線間電圧の降下は1線分の √3 倍 → 17.8 × √3 ≒ <b>30.8</b></li>
+                </ul>
+                <h4>許容電圧降下</h4>
+                <p>内線規程では、幹線・分岐回路それぞれの電圧降下を<b>標準電圧の2%以下</b>とすることが原則です（供給変圧器からのこう長が長い場合は緩和あり）。アプリの初期値は2%で、条件に応じて変更できます。</p>
+                <div class="formula">
+                    最大こう長 L = (許容電圧降下 [V] × 1000 × A) ÷ (係数 × I)<br>
+                    <span class="c">一覧表の「最大こう長」はこの式で、そのサイズで引ける最長距離を示しています。</span>
+                </div>
+            </div>
+        </details>
+
+        <details class="g-sec" id="g6">
+            <summary><span class="num">6</span>スターデルタ始動の配線</summary>
+            <div class="g-body">
+                <p>スターデルタ始動は、始動時に巻線をY（スター）結線にして電圧を1/√3に下げ、始動電流を直入れの約1/3に抑える方式です。加速後にΔ（デルタ）結線へ切り替えます。</p>
+                <svg class="g-svg" viewBox="0 0 560 170" xmlns="http://www.w3.org/2000/svg" font-family="sans-serif" font-size="12">
+                    <rect x="10" y="55" width="80" height="60" rx="6" fill="#edf2f7" stroke="#4a5568"/>
+                    <text x="50" y="82" text-anchor="middle" font-weight="bold">電源</text><text x="50" y="99" text-anchor="middle">MCCB</text>
+                    <rect x="230" y="45" width="100" height="80" rx="6" fill="#ebf8ff" stroke="#2b6cb0"/>
+                    <text x="280" y="80" text-anchor="middle" font-weight="bold" fill="#2b6cb0">Y-Δ</text><text x="280" y="97" text-anchor="middle" fill="#2b6cb0">始動器</text>
+                    <circle cx="500" cy="85" r="42" fill="#f0fff4" stroke="#2f855a"/>
+                    <text x="500" y="90" text-anchor="middle" font-weight="bold" fill="#2f855a">M</text>
+                    <g stroke="#e53e3e" stroke-width="2.5"><line x1="90" y1="70" x2="230" y2="70"/><line x1="90" y1="85" x2="230" y2="85"/><line x1="90" y1="100" x2="230" y2="100"/></g>
+                    <text x="160" y="58" text-anchor="middle" fill="#e53e3e" font-weight="bold">① 3本（電流 I）</text>
+                    <g stroke="#3182ce" stroke-width="2"><line x1="330" y1="60" x2="462" y2="64"/><line x1="330" y1="70" x2="460" y2="72"/><line x1="330" y1="80" x2="458" y2="80"/>
+                    <line x1="330" y1="92" x2="458" y2="90"/><line x1="330" y1="102" x2="460" y2="98"/><line x1="330" y1="112" x2="462" y2="106"/></g>
+                    <text x="395" y="45" text-anchor="middle" fill="#3182ce" font-weight="bold">② 6本（電流 I/√3）</text>
+                    <text x="395" y="140" text-anchor="middle" fill="#4a5568">U1V1W1 ＋ U2V2W2</text>
+                </svg>
+                <h4>② 始動器〜電動機間の電流</h4>
+                <p>運転中（Δ結線）、各巻線には相電流 <b>Iφ = I ÷ √3 ≒ 0.577 I</b> が流れます。②の6本は巻線につながるので、1本あたりの電流は Iφ です。</p>
+                <h4>② の必要許容電流（60%規定）</h4>
+                <p>内線規程では、スターデルタ始動器と電動機間の配線は、<b>電動機分岐回路（①）の配線の許容電流の60%以上</b>とされています。アプリでは次の大きい方を採用します。</p>
+                <div class="formula">
+                    ② 必要許容電流 = max( <b>Iφ × 係数（1.25 または 1.1）</b> , <b>①の許容電流 × 0.6</b> )
+                </div>
+                <div class="g-point">①を電圧降下のために太くすると、60%規定で②も太くなります。アプリは①と②の関係が落ち着くまで繰り返し計算しています。</div>
+                <h4>② の電圧降下</h4>
+                <p>巻線1相ぶんを、②の2本（行き・帰り）で往復するとみなし、単相2線式の式（係数35.6）に Iφ を入れて計算し、①の電圧降下と合計して許容値と比べます。</p>
+            </div>
+        </details>
+
+        <details class="g-sec" id="g7">
+            <summary><span class="num">7</span>2条（並列）布設</summary>
+            <div class="g-body">
+                <p>電流が大きく1条では足りない場合や、太いケーブルを避けたい場合（150sq以上）に、同じケーブルを2条並べて使います。</p>
+                <div class="formula">
+                    1条あたりの電流 = I ÷ 2<br>
+                    許容電流の合計 = 1条の許容電流 × 並列時低減率 × 2　≧　必要許容電流<br>
+                    電圧降下 = 係数 × L × I ÷ (1000 × A × 2)　<span class="c">← 断面積が2倍になったのと同じ</span>
+                </div>
+                <h4>並列で使うときの条件</h4>
+                <ul>
+                    <li>同一の種類・材質・太さ・長さとし、電流が均等に分かれるように施設する</li>
+                    <li>一般に、銅導体では 50mm² 以上とする（アプリの初期設定で50mm²未満を対象外にしています）</li>
+                    <li>同じラックに密着して並べる場合などは、相互の発熱で許容電流が下がるため「並列2条時の低減率」を入力する</li>
+                </ul>
+                <div class="g-point">アプリの動き：① 1条で該当なし → 自動で2条並列。② 1条の結果が150sq以上 → 「1条／2条並列」を区間ごとに切り替え可能。</div>
+            </div>
+        </details>
+
+        <details class="g-sec" id="g8">
+            <summary><span class="num">8</span>配線用遮断器（自動の参考値）</summary>
+            <div class="g-body">
+                <p>電動機の分岐回路の配線用遮断器は、<b>短絡は確実に遮断し、始動電流では動作しない</b>大きさにします。過負荷保護は電磁開閉器のサーマルリレーが受け持ちます。</p>
+                <h4>考え方（内線規程 資料3-7-5）</h4>
+                <ul>
+                    <li>直入れの始動電流：規約電流の <b>900%</b> が <b>6秒</b>流れる</li>
+                    <li>スターデルタのΔ切替時の突入電流：規約電流の <b>1600%</b>（瞬時）</li>
+                    <li>配線用遮断器は、定格100A以下は定格の <b>300%</b>、125A以上は <b>500%</b> を6秒流しても動作しない。瞬時引外しは定格の <b>750%</b></li>
+                </ul>
+                <div class="formula">
+                    直入れ　　　：定格 × (3 または 5) ≧ 9 × I　を満たす最小の標準定格<br>
+                    スターデルタ：定格 × 7.5 ≧ 16 × I　を満たす最小の標準定格
+                </div>
+                <div class="g-scroll" id="g-mccb-table"></div>
+                <div class="g-warn">内線規程の版や、メーカー選定表（高効率モーター対応）では1〜2段小さい値が示される場合があります。実際の遮断器定格が決まっている場合は、手入力してください。接地線の太さもその値で決まります。</div>
+            </div>
+        </details>
+
+        <details class="g-sec" id="g9">
+            <summary><span class="num">9</span>接地線（アース線）</summary>
+            <div class="g-body">
+                <p>電動機の外箱の接地（C種・D種接地工事）の接地線は、<b>電源側の過電流遮断器の定格電流</b>から、内線規程1350-3表で選びます。</p>
+                <div class="formula">
+                    根拠式：A = <b>0.052 × In</b><br>
+                    <span class="c">A：銅線の断面積 [mm²]　In：過電流遮断器の定格電流 [A]（地絡電流が流れても接地線が過熱しない太さ）</span>
+                </div>
+                <div class="g-scroll" id="g-earth-table"></div>
+                <p>例：遮断器 175A → 200A以下の区分 → <b>14mm²</b>（0.052 × 175 = 9.1mm² → 表で直近上位）</p>
+            </div>
+        </details>
+
+        <details class="g-sec" id="g10">
+            <summary><span class="num">10</span>計算例（200V・22kW・直入れ・気中・こう長30m）</summary>
+            <div class="g-body">
+                <div class="g-ex">
+                    <div class="step"><b>1</b><span>規約電流：22kW（200V）→ <b>I = 93A</b></span></div>
+                    <div class="step"><b>2</b><span>必要許容電流：93A ＞ 50A なので × 1.1 → <b>102.3A</b></span></div>
+                    <div class="step"><b>3</b><span>許容電流：CVT 14sq = 86A（不足）、CVT 22sq = <b>110A</b>（OK）</span></div>
+                    <div class="step"><b>4</b><span>電圧降下（CVT 22sq）：30.8 × 30 × 93 ÷ (1000 × 22) = <b>3.91V</b>（1.95%）≦ 4V（2%）OK</span></div>
+                    <div class="step"><b>5</b><span>→ ケーブルは <b>CVT 22sq</b></span></div>
+                    <div class="step"><b>6</b><span>配線用遮断器：9 × 93 = 837 → 定格×3 では100A以下で足りず、定格×5 ≧ 837 → 167.4A 以上 → <b>175A</b></span></div>
+                    <div class="step"><b>7</b><span>接地線：175A → 200A以下の区分 → <b>14mm²</b></span></div>
+                </div>
+                <p>モーター → ケーブル シートで同じ条件を入れると、同じ結果になります。</p>
+            </div>
+        </details>
+
+        <div class="m-notes">
+            <b>ご注意</b><br>
+            本アプリは内線規程・電技解釈・JCS規格・メーカー資料の考え方にもとづく<b>設計支援ツール</b>です。最終的な選定は、最新の内線規程・電技解釈・メーカー資料と、設計条件（短絡強度、保護協調、始動時電圧降下、布設環境など）で必ず確認してください。
+        </div>
+    </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+    // 各電線管の内径データベース (JIS・メーカー規格上限まで対応)
+    const conduitDatabase = {
+        E: { "19": 16.4, "25": 21.9, "31": 28.3, "39": 35.9, "51": 47.8, "63": 61.2, "75": 73.9 },
+        G: { "16": 16.4, "22": 21.9, "28": 27.6, "36": 35.0, "42": 41.2, "54": 53.0, "70": 67.8, "82": 80.4, "92": 93.2, "104": 105.4 },
+        VE: { "14": 14.0, "16": 16.0, "22": 22.0, "28": 28.0, "36": 36.0, "42": 42.0, "54": 54.0, "70": 70.0, "82": 82.0, "100": 100.0 },
+        PF: { "14": 14.0, "16": 16.0, "22": 22.0, "28": 28.0, "36": 36.0, "42": 42.0, "54": 54.0 },
+        KMV: { "12": 12.3, "16": 15.8, "22": 20.8, "28": 26.4, "36": 35.0, "42": 40.0, "54": 51.3, "70": 63.0, "82": 78.0 },
+        FEP: { "30": 30.0, "40": 40.0, "50": 50.0, "65": 65.0, "80": 81.0, "100": 100.0, "125": 125.0, "150": 150.0, "200": 200.0 }
+    };
+
+    // ケーブル外径データベース（JIS規格・電線メーカー標準仕上外径ベース）
+    // kind: 'wire' = 絶縁電線, 'cable' = ケーブル
+    const cableMasterDatabase = {
+        CV: [
+            { name: "CV 1c 2.0 sq", dia: 6.4 }, { name: "CV 1c 3.5 sq", dia: 7.0 }, { name: "CV 1c 5.5 sq", dia: 8.2 }, { name: "CV 1c 8.0 sq", dia: 8.8 }, { name: "CV 1c 14 sq", dia: 10.5 }, { name: "CV 1c 22 sq", dia: 12.0 }, { name: "CV 1c 38 sq", dia: 14.5 }, { name: "CV 1c 60 sq", dia: 17.0 }, { name: "CV 1c 100 sq", dia: 21.0 },
+            { name: "CV 2c 2.0 sq", dia: 11.5 }, { name: "CV 2c 3.5 sq", dia: 12.5 }, { name: "CV 2c 5.5 sq", dia: 14.5 }, { name: "CV 2c 8.0 sq", dia: 16.0 }, { name: "CV 2c 14 sq", dia: 19.0 }, { name: "CV 2c 22 sq", dia: 22.0 }, { name: "CV 2c 38 sq", dia: 26.0 }, { name: "CV 2c 60 sq", dia: 31.0 },
+            { name: "CV 3c 2.0 sq", dia: 12.0 }, { name: "CV 3c 3.5 sq", dia: 13.5 }, { name: "CV 3c 5.5 sq", dia: 15.5 }, { name: "CV 3c 8.0 sq", dia: 17.0 }, { name: "CV 3c 14 sq", dia: 20.0 }, { name: "CV 3c 22 sq", dia: 24.0 }, { name: "CV 3c 38 sq", dia: 28.0 }, { name: "CV 3c 60 sq", dia: 33.0 }, { name: "CV 3c 100 sq", dia: 41.0 },
+            { name: "CV 4c 2.0 sq", dia: 13.0 }, { name: "CV 4c 3.5 sq", dia: 14.5 }, { name: "CV 4c 5.5 sq", dia: 17.0 }, { name: "CV 4c 8.0 sq", dia: 18.5 }, { name: "CV 4c 14 sq", dia: 22.0 }, { name: "CV 4c 22 sq", dia: 26.0 }, { name: "CV 4c 38 sq", dia: 31.0 }
+        ],
+        CVT: [
+            { name: "CVT 14 sq", dia: 20.5 }, { name: "CVT 22 sq", dia: 24.0 }, { name: "CVT 38 sq", dia: 29.0 }, { name: "CVT 60 sq", dia: 34.0 }, { name: "CVT 100 sq", dia: 42.0 }, { name: "CVT 150 sq", dia: 49.0 }, { name: "CVT 200 sq", dia: 55.0 }, { name: "CVT 250 sq", dia: 61.0 }
+        ],
+        // 6600V CVT：仕上外径（よりあわせ外径・約）。メーカーにより差があるため大きめの値を採用
+        CVT6: [
+            { name: "6.6kV CVT 14 sq", dia: 37 }, { name: "6.6kV CVT 22 sq", dia: 42 }, { name: "6.6kV CVT 38 sq", dia: 46 }, { name: "6.6kV CVT 60 sq", dia: 51 },
+            { name: "6.6kV CVT 100 sq", dia: 58 }, { name: "6.6kV CVT 150 sq", dia: 65 }, { name: "6.6kV CVT 200 sq", dia: 73 }, { name: "6.6kV CVT 250 sq", dia: 78 },
+            { name: "6.6kV CVT 325 sq", dia: 84 }, { name: "6.6kV CVT 400 sq", dia: 90 }
+        ],
+        IV: [
+            { name: "IV 2.0 sq", dia: 3.4 }, { name: "IV 3.5 sq", dia: 4.1 }, { name: "IV 5.5 sq", dia: 5.0 }, { name: "IV 8.0 sq", dia: 6.0 }, { name: "IV 14 sq", dia: 7.6 }, { name: "IV 22 sq", dia: 9.2 }, { name: "IV 38 sq", dia: 12.0 }, { name: "IV 60 sq", dia: 14.5 }, { name: "IV 100 sq", dia: 17.0 }
+        ],
+        CVV: [
+            { name: "CVV 2c 1.25 sq", dia: 10.5 }, { name: "CVV 3c 1.25 sq", dia: 11.0 }, { name: "CVV 4c 1.25 sq", dia: 12.0 }, { name: "CVV 5c 1.25 sq", dia: 13.0 }, { name: "CVV 7c 1.25 sq", dia: 14.0 }, { name: "CVV 10c 1.25 sq", dia: 17.5 }, { name: "CVV 15c 1.25 sq", dia: 19.5 }, { name: "CVV 20c 1.25 sq", dia: 21.5 }
+        ],
+        KPEVS: [
+            { name: "KPEVS 1p 0.75 sq", dia: 8.5 }, { name: "KPEVS 2p 0.75 sq", dia: 11.0 }, { name: "KPEVS 3p 0.75 sq", dia: 11.5 },
+            { name: "KPEVS 1p 1.25 sq", dia: 9.5 }, { name: "KPEVS 2p 1.25 sq", dia: 12.5 }, { name: "KPEVS 3p 1.25 sq", dia: 13.5 }
+        ],
+        VCTF: [
+            { name: "VCTF 2c 1.25 sq", dia: 7.4 }, { name: "VCTF 3c 1.25 sq", dia: 8.0 }, { name: "VCTF 4c 1.25 sq", dia: 8.5 }, { name: "VCTF 6c 1.25 sq", dia: 10.0 }, { name: "VCTF 8c 1.25 sq", dia: 11.5 }
+        ]
+    };
+    const groupKind = { CV: 'cable', CVT: 'cable', CVT6: 'cable', IV: 'wire', CVV: 'cable', KPEVS: 'cable', VCTF: 'cable' };
+
+    // 追加順に割り当てる識別色（凡例・番号と対応）
+    const palette = ['#3182ce', '#e53e3e', '#38a169', '#d69e2e', '#805ad5', '#dd6b20', '#319795', '#d53f8c', '#718096', '#2b6cb0', '#9c4221', '#68d391'];
+
+    const QTY_MAX = 99; // 1品目あたりの上限本数
+    const groupOrder = ['CV', 'CVT', 'CVT6', 'IV', 'CVV', 'KPEVS', 'VCTF'];
+    const groupLabel = { CV: 'CV', CVT: 'CVT 600V', CVT6: 'CVT 6.6kV', IV: 'IV', CVV: 'CVV', KPEVS: 'KPEVS', VCTF: 'VCTF' };
+    const noCoreLabel = { CVT: 'トリプレックス', CVT6: 'トリプレックス', IV: '単心' };
+    const stepOptions = [1, 2, 3, 5, 10];
+    let activeGroup = 'CV';
+    let tapStep = 1;
+
+    // 品名を「芯数」と「サイズ」に分解（例: "CV 3c 38 sq" → core "3c", size "38"）
+    function parseName(group, name) {
+        const t = name.split(/\s+/);
+        const core = t.find(s => /^\d+[cp]$/.test(s)) || (noCoreLabel[group] || '-');
+        const sqIdx = t.indexOf('sq');
+        const size = sqIdx > 0 ? t[sqIdx - 1] : '-';
+        return { core, size };
+    }
+
+    // 品種ごとのマトリクス構造を作成（値の種類が多い方を行にする）
+    function buildMatrix(group) {
+        const items = cableMasterDatabase[group].map((c, i) => ({ ...c, i, ...parseName(group, c.name) }));
+        const uniq = arr => [...new Set(arr)];
+        const sizes = uniq(items.map(x => x.size)).sort((a, b) => parseFloat(a) - parseFloat(b));
+        const cores = uniq(items.map(x => x.core)).sort((a, b) => (parseFloat(a) || 0) - (parseFloat(b) || 0));
+        const sizeIsRow = sizes.length >= cores.length;
+        const rows = sizeIsRow ? sizes : cores;
+        const cols = sizeIsRow ? cores : sizes;
+        const fmtSize = s => s + 'sq';
+        return {
+            rowLabels: rows.map(r => sizeIsRow ? fmtSize(r) : r),
+            colLabels: cols.map(c => sizeIsRow ? c : fmtSize(c)),
+            cell: (ri, ci) => items.find(x => sizeIsRow
+                ? (x.size === rows[ri] && x.core === cols[ci])
+                : (x.core === rows[ri] && x.size === cols[ci]))
+        };
+    }
+
+    let selectedCables = [];
+    let cableIdCounter = 1;
+    let physicsCables = [];
+    let hoverCableId = null;
+
+    const $ = id => document.getElementById(id);
+    const conduitTypeSelect = $('conduit-type-select');
+    const conduitSizeSelect = $('conduit-size-select');
+    const conduitInfoText = $('conduit-info-text');
+    const groupTabs = $('group-tabs');
+    const stepBtns = $('step-btns');
+    const matrixWrap = $('matrix-wrap');
+    const cableListContainer = $('cable-list-container');
+    const percentageDisplay = $('percentage-display');
+    const statusBadge = $('status-badge');
+    const judgeReason = $('judge-reason');
+    const judgeModeSelect = $('judge-mode-select');
+    const easyPullCheck = $('easy-pull-check');
+    const sizeTableBody = $('size-table-body');
+    const sizeTableCaption = $('size-table-caption');
+    const legendEl = $('legend');
+    const tooltip = $('tooltip');
+    const showNoCheck = $('show-no-check');
+    const showNameCheck = $('show-name-check');
+
+    // ---- Canvas（高解像度ディスプレイ対応） ----
+    const canvas = $('conduit-canvas');
+    const ctx = canvas.getContext('2d');
+    const viewSize = 300;
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = viewSize * dpr;
+    canvas.height = viewSize * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // ---- 計算系 ----
+    const circleArea = d => Math.PI * (d / 2) ** 2;
+
+    function totals() {
+        let area = 0, qty = 0, maxDia = 0;
+        selectedCables.forEach(c => {
+            area += circleArea(c.dia) * c.qty;
+            qty += c.qty;
+            maxDia = Math.max(maxDia, c.dia);
+        });
+        return { area, qty, maxDia };
+    }
+
+    // 判定基準の決定（内径に依存しない部分）
+    function getCriterion() {
+        const t = totals();
+        const kinds = selectedCables.length;
+        const singleCable = (t.qty === 1 && selectedCables[0] && selectedCables[0].kind === 'cable');
+        let limit, reason;
+
+        if (judgeModeSelect.value === '32') {
+            limit = 32; reason = '手動設定：32%以下';
+        } else if (judgeModeSelect.value === '48') {
+            limit = 48; reason = '手動設定：48%以下';
+        } else if (kinds <= 1) {
+            if (easyPullCheck.checked) {
+                limit = 48; reason = '同一太さのみ・屈曲少／引替容易 → 48%以下';
+            } else {
+                limit = 32; reason = '同一太さのみ（屈曲条件なし） → 32%以下';
+            }
+        } else {
+            limit = 32; reason = '太さの異なる電線・ケーブルが混在 → 32%以下';
+        }
+        if (singleCable) reason += '／ケーブル1条：管内径 ≧ 外径×1.5 も確認';
+        return { limit, reason, singleCable, ...t };
+    }
+
+    // 指定内径での判定
+    function evaluate(innerDia, crit) {
+        const rate = innerDia > 0 ? crit.area / circleArea(innerDia) * 100 : 0;
+        const fitOk = crit.maxDia < innerDia; // 物理的に入るか
+        const ratioOk = crit.singleCable ? innerDia >= crit.maxDia * 1.5 : null;
+        const ok = selectedCables.length > 0 && fitOk && rate <= crit.limit && (ratioOk !== false);
+        return { rate, fitOk, ratioOk, ok };
+    }
+
+    // ---- UI更新 ----
+    function updateConduitSizeOptions() {
+        const selectedType = conduitTypeSelect.value;
+        const sizes = conduitDatabase[selectedType];
+        const keys = Object.keys(sizes);
+
+        conduitSizeSelect.innerHTML = '';
+        keys.forEach((size, index) => {
+            const option = document.createElement('option');
+            option.value = size; // 呼び径をキーにする（内径の重複に影響されない）
+            option.textContent = `呼び径 ${size} (内径 ${sizes[size]}mm)`;
+            if ((selectedType === 'KMV' && size === '82') ||
+                (selectedType !== 'KMV' && index === Math.floor(keys.length / 2))) {
+                option.selected = true;
+            }
+            conduitSizeSelect.appendChild(option);
+        });
+        render(true);
+    }
+
+    // ---- ケーブル追加UI（タブ＋マトリクス） ----
+    function renderStepButtons() {
+        stepBtns.innerHTML = '';
+        stepOptions.forEach(n => {
+            const b = document.createElement('button');
+            b.className = 'step-btn' + (n === tapStep ? ' active' : '');
+            b.textContent = `+${n}`;
+            b.addEventListener('click', () => { tapStep = n; renderStepButtons(); });
+            stepBtns.appendChild(b);
+        });
+    }
+
+    function renderGroupTabs() {
+        groupTabs.innerHTML = '';
+        groupOrder.forEach(g => {
+            const names = cableMasterDatabase[g].map(c => c.name);
+            const cnt = selectedCables.filter(c => names.includes(c.name)).reduce((s, c) => s + c.qty, 0);
+            const b = document.createElement('button');
+            b.className = 'group-tab' + (g === activeGroup ? ' active' : '');
+            b.innerHTML = groupLabel[g] + (cnt ? `<span class="cnt">${cnt}</span>` : '');
+            b.addEventListener('click', () => { activeGroup = g; renderAdder(); });
+            groupTabs.appendChild(b);
+        });
+    }
+
+    function renderMatrix() {
+        const m = buildMatrix(activeGroup);
+        const table = document.createElement('table');
+        table.className = 'matrix';
+        if (m.colLabels.length <= 2) table.style.width = 'auto';
+        let head = '<tr><th></th>' + m.colLabels.map(c => `<th>${c}</th>`).join('') + '</tr>';
+        table.innerHTML = head;
+        m.rowLabels.forEach((rl, ri) => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<th class="row-h">${rl}</th>`;
+            m.colLabels.forEach((_, ci) => {
+                const td = document.createElement('td');
+                const item = m.cell(ri, ci);
+                if (!item) {
+                    td.innerHTML = '<div class="cell-empty"></div>';
+                } else {
+                    const sel = selectedCables.find(c => c.name === item.name);
+                    const btn = document.createElement('button');
+                    btn.className = 'cell-btn' + (sel ? ' has' : '');
+                    if (sel) btn.style.borderColor = sel.color;
+                    btn.title = `${item.name}（外径 ${item.dia}mm）`;
+                    btn.innerHTML = `<span class="dia">φ${item.dia}</span>` +
+                        (sel ? `<span class="qty" style="background:${sel.color}">${sel.qty}</span>` : '');
+                    btn.addEventListener('click', () => addCable(activeGroup, item.i, tapStep));
+                    btn.addEventListener('contextmenu', e => { e.preventDefault(); addCable(activeGroup, item.i, -1); });
+                    td.appendChild(btn);
+                }
+                tr.appendChild(td);
+            });
+            table.appendChild(tr);
+        });
+        matrixWrap.innerHTML = '';
+        matrixWrap.appendChild(table);
+    }
+
+    function renderAdder() {
+        renderGroupTabs();
+        renderMatrix();
+    }
+
+    // 追加・減算（delta<0で減らす。0本で削除）
+    function addCable(group, idx, delta) {
+        const master = cableMasterDatabase[group][idx];
+        if (!master) return;
+        const existing = selectedCables.find(c => c.name === master.name);
+        if (existing) {
+            setQty(existing.id, existing.qty + delta);
+            return;
+        }
+        if (delta <= 0) return;
+        const usedColors = selectedCables.map(c => c.color);
+        const color = palette.find(p => !usedColors.includes(p)) || palette[selectedCables.length % palette.length];
+        selectedCables.push({ id: cableIdCounter++, name: master.name, dia: master.dia, qty: Math.min(delta, QTY_MAX), kind: groupKind[group], color });
+        render(true);
+    }
+
+    function setQty(id, qty) {
+        const c = selectedCables.find(x => x.id === id);
+        if (!c) return;
+        qty = Math.floor(Number(qty));
+        if (!Number.isFinite(qty)) qty = c.qty;
+        if (qty <= 0) {
+            selectedCables = selectedCables.filter(x => x.id !== id);
+            if (hoverCableId === id) hoverCableId = null;
+        } else {
+            c.qty = Math.min(qty, QTY_MAX);
+        }
+        hoverCableId = null; // 再描画で mouseleave が拾えないためリセット
+        render(true);
+    }
+
+    function currentInnerDia() {
+        return conduitDatabase[conduitTypeSelect.value][conduitSizeSelect.value] || 1;
+    }
+
+    function render(resetLayout) {
+        // 一覧
+        cableListContainer.innerHTML = '';
+        if (selectedCables.length === 0) {
+            cableListContainer.innerHTML = '<div class="empty">ケーブルが追加されていません</div>';
+        }
+        selectedCables.forEach((cable, idx) => {
+            const item = document.createElement('div');
+            item.className = 'cable-item' + (hoverCableId === cable.id ? ' hl' : '');
+            item.innerHTML = `
+                <div class="left">
+                    <span class="no-badge" style="background:${cable.color}">${idx + 1}</span>
+                    <div><b>${cable.name}</b><br><span class="sub">外径 ${cable.dia}mm</span></div>
+                </div>
+                <div class="qty-ctrl">
+                    <button class="q-minus" data-id="${cable.id}" title="1本減らす">−</button>
+                    <input type="number" class="q-input" data-id="${cable.id}" value="${cable.qty}" min="0" max="${QTY_MAX}" inputmode="numeric">
+                    <button class="q-plus" data-id="${cable.id}" title="1本増やす">＋</button>
+                    <button class="btn-delete" data-id="${cable.id}">削除</button>
+                </div>`;
+            item.addEventListener('mouseenter', () => { hoverCableId = cable.id; });
+            item.addEventListener('mouseleave', () => { hoverCableId = null; });
+            cableListContainer.appendChild(item);
+        });
+
+        const innerDia = currentInnerDia();
+        conduitInfoText.textContent = `選択中電線管の内径: ${innerDia.toFixed(1)} mm`;
+
+        const crit = getCriterion();
+        const ev = evaluate(innerDia, crit);
+        percentageDisplay.innerText = `${ev.rate.toFixed(1)} %`;
+
+        if (selectedCables.length === 0) {
+            statusBadge.innerText = 'ケーブルを追加してください';
+            statusBadge.className = 'status-badge';
+            percentageDisplay.style.color = '#333';
+            judgeReason.textContent = '';
+        } else {
+            let msg;
+            if (!ev.fitOk) msg = `【不可】ケーブル外径が管内径以上です`;
+            else if (ev.rate > crit.limit) msg = `【危険】許容オーバー（基準: ${crit.limit}%以下）`;
+            else if (ev.ratioOk === false) msg = `【危険】管内径が外径の1.5倍未満（${(innerDia / crit.maxDia).toFixed(2)}倍）`;
+            else msg = `【安全】基準内（基準: ${crit.limit}%以下）`;
+
+            statusBadge.innerText = msg;
+            statusBadge.className = 'status-badge ' + (ev.ok ? 'status-safe' : 'status-danger');
+            percentageDisplay.style.color = ev.ok ? 'var(--success-color)' : 'var(--danger-color)';
+            judgeReason.textContent = crit.reason;
+        }
+
+        // スマホ固定バー
+        const mbJudge = $('mb-judge');
+        $('mb-conduit').textContent = `${conduitTypeSelect.value}${conduitSizeSelect.value}（φ${innerDia}）`;
+        $('mb-rate').textContent = `${ev.rate.toFixed(1)}%`;
+        if (selectedCables.length === 0) { mbJudge.textContent = '未選択'; mbJudge.className = 'mb-judge'; }
+        else { mbJudge.textContent = (ev.ok ? '○ 適合' : '× NG') + `（${crit.limit}%）`; mbJudge.className = 'mb-judge ' + (ev.ok ? 'ok' : 'ng'); }
+
+        renderLegend();
+        renderAdder();
+        saveState();
+        renderSizeTable(crit);
+        initPhysicsCables(innerDia, resetLayout);
+    }
+
+    function renderLegend() {
+        legendEl.innerHTML = selectedCables.map((c, i) =>
+            `<div class="legend-item"><span class="no-badge" style="background:${c.color}">${i + 1}</span>${c.name} ×${c.qty}</div>`
+        ).join('');
+    }
+
+    function renderSizeTable(crit) {
+        const type = conduitTypeSelect.value;
+        const sizes = conduitDatabase[type];
+        const current = conduitSizeSelect.value;
+        const typeLabel = conduitTypeSelect.options[conduitTypeSelect.selectedIndex].textContent;
+        sizeTableCaption.textContent = selectedCables.length
+            ? `${typeLabel}／基準 ${crit.limit}%以下`
+            : `${typeLabel}（ケーブル未選択）`;
+
+        let minOkFound = false;
+        sizeTableBody.innerHTML = '';
+        Object.keys(sizes).forEach(size => {
+            const d = sizes[size];
+            const ev = evaluate(d, crit);
+            const tr = document.createElement('tr');
+            const has = selectedCables.length > 0;
+            if (size === current) tr.classList.add('current');
+            if (has && ev.ok && !minOkFound) { tr.classList.add('min-ok'); minOkFound = true; }
+
+            const pct = Math.min(ev.rate, 100);
+            const fillColor = !has ? '#cbd5e0' : (ev.ok ? 'var(--success-color)' : 'var(--danger-color)');
+            const ratioCell = !has ? '<span class="na">—</span>'
+                : ev.ratioOk === null ? '<span class="na">対象外</span>'
+                : ev.ratioOk ? `<span class="ok">${(d / crit.maxDia).toFixed(2)}倍</span>`
+                : `<span class="ng">${(d / crit.maxDia).toFixed(2)}倍</span>`;
+            const judgeCell = !has ? '<span class="na">—</span>'
+                : !ev.fitOk ? '<span class="ng">入らない</span>'
+                : ev.ok ? '<span class="ok">○ 適合</span>' : '<span class="ng">× 超過</span>';
+
+            tr.innerHTML = `
+                <td>${size}</td>
+                <td>${d.toFixed(1)}</td>
+                <td>${has ? ev.rate.toFixed(1) + ' %' : '—'}</td>
+                <td class="bar-cell"><div class="bar">
+                    <div class="fill" style="width:${pct}%;background:${fillColor}"></div>
+                    <div class="mark" style="left:${has ? crit.limit : 32}%"></div>
+                </div></td>
+                <td>${ratioCell}</td>
+                <td>${judgeCell}</td>`;
+            tr.addEventListener('click', () => {
+                conduitSizeSelect.value = size;
+                render(false);
+            });
+            sizeTableBody.appendChild(tr);
+        });
+        if (selectedCables.length && !minOkFound) {
+            sizeTableCaption.textContent += '　※この管種には適合サイズがありません（管種変更または条数分割を検討）';
+        }
+    }
+
+    // ---- イベント ----
+    cableListContainer.addEventListener('click', e => {
+        const btn = e.target.closest('button');
+        if (!btn || !btn.dataset.id) return;
+        const id = parseInt(btn.dataset.id, 10);
+        const c = selectedCables.find(x => x.id === id);
+        if (!c) return;
+        if (btn.classList.contains('q-minus')) setQty(id, c.qty - 1);
+        else if (btn.classList.contains('q-plus')) setQty(id, c.qty + 1);
+        else if (btn.classList.contains('btn-delete')) setQty(id, 0);
+    });
+    // 本数の直接入力（確定時に反映）
+    cableListContainer.addEventListener('change', e => {
+        if (!e.target.classList.contains('q-input')) return;
+        setQty(parseInt(e.target.dataset.id, 10), e.target.value);
+    });
+    cableListContainer.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && e.target.classList.contains('q-input')) e.target.blur();
+    });
+    cableListContainer.addEventListener('focusin', e => {
+        if (e.target.classList.contains('q-input')) e.target.select();
+    });
+
+    // 全削除：2回タップで確定（confirmダイアログが使えない環境向け）
+    let clearArmTimer = null;
+    $('btn-clear').addEventListener('click', e => {
+        const btn = e.currentTarget;
+        if (!selectedCables.length) return;
+        if (!clearArmTimer) {
+            btn.textContent = 'もう一度タップで全削除';
+            btn.style.background = '#e53e3e';
+            clearArmTimer = setTimeout(() => {
+                clearArmTimer = null; btn.textContent = '全削除'; btn.style.background = '';
+            }, 3000);
+            return;
+        }
+        clearTimeout(clearArmTimer); clearArmTimer = null;
+        btn.textContent = '全削除'; btn.style.background = '';
+        selectedCables = [];
+        hoverCableId = null;
+        render(true);
+    });
+
+    conduitTypeSelect.addEventListener('change', updateConduitSizeOptions);
+    conduitSizeSelect.addEventListener('change', () => render(false));
+    judgeModeSelect.addEventListener('change', () => render(false));
+    easyPullCheck.addEventListener('change', () => render(false));
+
+    // ---- 断面描画（安定配置） ----
+    // 再現性のある乱数（同じ構成なら毎回同じ配置）
+    function seededRandom(seed) {
+        let s = seed >>> 0;
+        return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; };
+    }
+
+    function initPhysicsCables(innerDia, resetLayout) {
+        const scale = viewSize / innerDia;
+        const prev = physicsCables;
+        const list = [];
+        selectedCables.forEach(c => {
+            for (let i = 0; i < c.qty; i++) {
+                list.push({ id: c.id, idx: i, name: c.name, dia: c.dia, r: (c.dia * scale) / 2, color: c.color });
+            }
+        });
+
+        // 管サイズ変更のみの場合は、既存配置を中心基準でスケールして引き継ぐ
+        if (!resetLayout && prev.length === list.length && prev.prevScale) {
+            const k = scale / prev.prevScale;
+            list.forEach((c, i) => {
+                c.x = viewSize / 2 + (prev[i].x - viewSize / 2) * k;
+                c.y = viewSize / 2 + (prev[i].y - viewSize / 2) * k;
+            });
+        } else {
+            // 大径から順に、管底から積み上げる初期配置
+            const rand = seededRandom(list.length * 7919 + Math.round(scale * 1000));
+            const order = list.map((c, i) => i).sort((a, b) => list[b].r - list[a].r);
+            const R = viewSize / 2;
+            order.forEach((i, n) => {
+                const c = list[i];
+                const angle = Math.PI / 2 + (rand() - 0.5) * Math.PI * 0.9; // 下側中心に散らす
+                const dist = Math.max(0, R - c.r - n * 0.8);
+                c.x = R + Math.cos(angle) * dist * 0.6;
+                c.y = R + Math.sin(angle) * dist * 0.6;
+            });
+        }
+        physicsCables = list;
+        physicsCables.prevScale = scale;
+
+        // 事前に落ち着かせてから描画（ガタつき防止）
+        for (let k = 0; k < 400; k++) updatePhysics();
+    }
+
+    function updatePhysics() {
+        const R = viewSize / 2, cx = R, cy = R, gravity = 0.15;
+        const n = physicsCables.length;
+
+        for (let step = 0; step < 4; step++) {
+            for (let i = 0; i < n; i++) {
+                const a = physicsCables[i];
+                for (let j = i + 1; j < n; j++) {
+                    const b = physicsCables[j];
+                    let dx = b.x - a.x, dy = b.y - a.y;
+                    let dist = Math.sqrt(dx * dx + dy * dy);
+                    const minDist = a.r + b.r;
+                    if (dist < minDist) {
+                        if (dist === 0) { dx = 1; dy = 0; dist = 1; }
+                        const overlap = (minDist - dist) * 0.5;
+                        const nx = dx / dist, ny = dy / dist;
+                        a.x -= nx * overlap; a.y -= ny * overlap;
+                        b.x += nx * overlap; b.y += ny * overlap;
+                    }
+                }
+            }
+            for (let i = 0; i < n; i++) {
+                const c = physicsCables[i];
+                c.y += gravity;
+                const dx = c.x - cx, dy = c.y - cy;
+                const dist = Math.sqrt(dx * dx + dy * dy) || 0.0001;
+                const maxD = Math.max(0, R - c.r);
+                if (dist > maxD) {
+                    c.x = cx + dx / dist * maxD;
+                    c.y = cy + dy / dist * maxD;
+                }
+            }
+        }
+    }
+
+    function shortName(name) {
+        // "CV 3c 38 sq" → "CV3c38"
+        return name.replace(/\s*sq$/, '').replace(/\s+/g, '');
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, viewSize, viewSize);
+        updatePhysics();
+
+        const indexOf = {};
+        selectedCables.forEach((c, i) => indexOf[c.id] = i + 1);
+        const anyHover = hoverCableId !== null;
+
+        physicsCables.forEach(c => {
+            const dim = anyHover && c.id !== hoverCableId;
+            ctx.globalAlpha = dim ? 0.3 : 1;
+            ctx.beginPath();
+            ctx.arc(c.x, c.y, c.r, 0, Math.PI * 2);
+            ctx.fillStyle = c.color;
+            ctx.fill();
+            ctx.strokeStyle = (anyHover && !dim) ? '#ffff00' : '#ffffff';
+            ctx.lineWidth = (anyHover && !dim) ? 2 : 1;
+            ctx.stroke();
+
+            // 番号・品名
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            if (showNameCheck.checked && c.r >= 22) {
+                const fs = Math.min(13, c.r / 3);
+                ctx.font = `bold ${fs}px sans-serif`;
+                ctx.fillText(`${indexOf[c.id]}`, c.x, c.y - fs * 0.7);
+                ctx.font = `${fs * 0.85}px sans-serif`;
+                ctx.fillText(shortName(c.name), c.x, c.y + fs * 0.6);
+            } else if (showNoCheck.checked && c.r >= 5) {
+                ctx.font = `bold ${Math.min(14, Math.max(8, c.r * 0.9))}px sans-serif`;
+                ctx.fillText(`${indexOf[c.id]}`, c.x, c.y + 0.5);
+            }
+        });
+        ctx.globalAlpha = 1;
+
+        requestAnimationFrame(draw);
+    }
+
+    // ---- ホバー／タップでケーブル名表示 ----
+    function hitTest(clientX, clientY) {
+        const rect = canvas.getBoundingClientRect();
+        const border = 10;
+        const s = viewSize / (rect.width - border * 2);
+        const x = (clientX - rect.left - border) * s;
+        const y = (clientY - rect.top - border) * s;
+        for (let i = physicsCables.length - 1; i >= 0; i--) {
+            const c = physicsCables[i];
+            if ((x - c.x) ** 2 + (y - c.y) ** 2 <= c.r * c.r) return c;
+        }
+        return null;
+    }
+
+    function showTooltip(clientX, clientY) {
+        const hit = hitTest(clientX, clientY);
+        if (!hit) {
+            tooltip.style.display = 'none';
+            hoverCableId = null;
+            return;
+        }
+        const entry = selectedCables.find(c => c.id === hit.id);
+        const no = selectedCables.indexOf(entry) + 1;
+        tooltip.innerHTML = `<b>${no}. ${hit.name}</b><br>外径 ${hit.dia}mm ／ ${entry ? entry.qty : '-'}本中`;
+        const box = $('conduit-container').getBoundingClientRect();
+        tooltip.style.display = 'block';
+        let left = clientX - box.left + 12;
+        let top = clientY - box.top + 12;
+        if (left + tooltip.offsetWidth > box.width) left = clientX - box.left - tooltip.offsetWidth - 12;
+        tooltip.style.left = left + 'px';
+        tooltip.style.top = top + 'px';
+        hoverCableId = hit.id;
+    }
+
+    canvas.addEventListener('mousemove', e => showTooltip(e.clientX, e.clientY));
+    canvas.addEventListener('mouseleave', () => { tooltip.style.display = 'none'; hoverCableId = null; });
+    canvas.addEventListener('click', e => showTooltip(e.clientX, e.clientY)); // タップ対応
+
+    // 一覧ハイライトの反映
+    setInterval(() => {
+        document.querySelectorAll('.cable-item').forEach((el, i) => {
+            const c = selectedCables[i];
+            el.classList.toggle('hl', !!c && c.id === hoverCableId);
+        });
+    }, 100);
+
+    // ---- 状態の保存・復元（ページを閉じても続きから） ----
+    const STORE_KEY = 'conduitSim.v1';
+    let restoring = true;
+    function saveState() {
+        if (restoring) return;
+        try {
+            localStorage.setItem(STORE_KEY, JSON.stringify({
+                type: conduitTypeSelect.value, size: conduitSizeSelect.value,
+                mode: judgeModeSelect.value, easy: easyPullCheck.checked,
+                group: activeGroup, step: tapStep,
+                cables: selectedCables.map(c => ({ name: c.name, qty: c.qty }))
+            }));
+        } catch (e) { /* 保存できない環境では何もしない */ }
+    }
+    function loadState() {
+        let st = null;
+        try { st = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); } catch (e) { st = null; }
+        if (!st) return false;
+        if (conduitDatabase[st.type]) conduitTypeSelect.value = st.type;
+        if (st.mode) judgeModeSelect.value = st.mode;
+        if (typeof st.easy === 'boolean') easyPullCheck.checked = st.easy;
+        if (groupOrder.includes(st.group)) activeGroup = st.group;
+        if (stepOptions.includes(st.step)) tapStep = st.step;
+        (st.cables || []).forEach(sc => {
+            for (const g of groupOrder) {
+                const m = cableMasterDatabase[g].find(c => c.name === sc.name);
+                if (m) {
+                    selectedCables.push({ id: cableIdCounter++, name: m.name, dia: m.dia,
+                        qty: Math.min(Math.max(1, sc.qty | 0), QTY_MAX), kind: groupKind[g],
+                        color: palette[selectedCables.length % palette.length] });
+                    break;
+                }
+            }
+        });
+        return st;
+    }
+
+    $('mb-jump').addEventListener('click', () => {
+        $('conduit-container').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
+    const saved = loadState();
+    renderStepButtons();
+    updateConduitSizeOptions();
+    if (saved && saved.size && conduitDatabase[conduitTypeSelect.value][saved.size]) {
+        conduitSizeSelect.value = saved.size;
+    }
+    restoring = false;
+    render(true);
+    draw();
+
+    // =====================================================================
+    //  シート切替
+    // =====================================================================
+    function showSheet(name) {
+        if (!['conduit', 'motor', 'guide'].includes(name)) name = 'conduit';
+        document.querySelectorAll('.sheet-tab').forEach(t => t.classList.toggle('active', t.dataset.sheet === name));
+        $('sheet-conduit').hidden = name !== 'conduit';
+        $('sheet-motor').hidden = name !== 'motor';
+        $('sheet-guide').hidden = name !== 'guide';
+        document.body.classList.toggle('sheet-motor', name !== 'conduit');
+        try { if (location.hash !== '#' + name) history.replaceState(null, '', '#' + name); } catch (e) {}
+        if (name === 'motor') motorCalc();
+    }
+    document.querySelectorAll('.sheet-tab').forEach(t => t.addEventListener('click', () => {
+        showSheet(t.dataset.sheet);
+        window.scrollTo({ top: 0 });
+    }));
+    window.addEventListener('hashchange', () => showSheet(location.hash.slice(1)));
+
+    function toast(msg) {
+        const t = $('toast');
+        t.textContent = msg;
+        t.classList.add('show');
+        clearTimeout(toast._t);
+        toast._t = setTimeout(() => t.classList.remove('show'), 2200);
+    }
+
+    // =====================================================================
+    //  モーター → ケーブル選定
+    // =====================================================================
+    // 三相誘導電動機の規約電流（内線規程）[kW, 200V(A), 400V(A)]
+    const motorTable = [
+        [0.2, 1.8, 0.9], [0.4, 3.2, 1.6], [0.75, 4.8, 2.4], [1.5, 8.0, 4.0], [2.2, 11.1, 5.5],
+        [3.7, 17.4, 8.7], [5.5, 26, 13], [7.5, 34, 17], [11, 48, 24], [15, 65, 32],
+        [18.5, 79, 39], [22, 93, 46], [30, 125, 62], [37, 160, 80], [45, 190, 95],
+        [55, 230, 115], [75, 310, 155], [90, 360, 180], [110, 440, 220], [132, 500, 250]
+    ];
+
+    // 600V CV 3心 / CVT 許容電流（JCS 0168, 導体90℃, 基底温度40℃）[A]
+    // sz はケーブルDB上の表記（電線管シートへ送るときの品名に使う）
+    const typeInfo = {
+        CV3: { label: 'CV 3心', short: 'CV', groupKey: 'CV', name: sz => `CV 3c ${sz} sq` },
+        CVT: { label: 'CVT', short: 'CVT', groupKey: 'CVT', name: sz => `CVT ${sz} sq` }
+    };
+    const cv3Rows = [
+        { sz: '2.0', a: 2,   air: 23,  conduit: 19 },
+        { sz: '3.5', a: 3.5, air: 33,  conduit: 26 },
+        { sz: '5.5', a: 5.5, air: 44,  conduit: 35 },
+        { sz: '8.0', a: 8,   air: 54,  conduit: 43 },
+        { sz: '14',  a: 14,  air: 76,  conduit: 59 },
+        { sz: '22',  a: 22,  air: 100, conduit: 77 },
+        { sz: '38',  a: 38,  air: 140, conduit: 110 },
+        { sz: '60',  a: 60,  air: 190, conduit: 150 },
+        { sz: '100', a: 100, air: 260, conduit: 210 }
+    ].map(r => ({ ...r, type: 'CV3' }));
+    const cvtRows = [
+        { sz: '14',  a: 14,  air: 86,  conduit: 63 },
+        { sz: '22',  a: 22,  air: 110, conduit: 82 },
+        { sz: '38',  a: 38,  air: 155, conduit: 110 },
+        { sz: '60',  a: 60,  air: 210, conduit: 150 },
+        { sz: '100', a: 100, air: 290, conduit: 215 },
+        { sz: '150', a: 150, air: 380, conduit: 275 },
+        { sz: '200', a: 200, air: 465, conduit: 340 },
+        { sz: '250', a: 250, air: 535, conduit: 395 }
+    ].map(r => ({ ...r, type: 'CVT' }));
+    const ampTable = {
+        AUTO: { label: 'CV 3心／CVT', rows: [...cv3Rows.filter(r => r.a < 14), ...cvtRows] }, // 14sq以上はCVT
+        CV3:  { label: 'CV 3心', rows: cv3Rows },
+        CVT:  { label: 'CVT', rows: cvtRows }
+    };
+
+    // 配線用遮断器の標準定格 [A]
+    const mccbRatings = [15, 20, 30, 40, 50, 60, 75, 100, 125, 150, 175, 200, 225, 250, 300, 350, 400, 500, 600, 700, 800, 1000, 1200];
+    // 内線規程 資料3-7-5 の考え方による参考値
+    //  直入れ：始動電流 900% が6秒 → 定格100A以下は300%、125A以上は500% を6秒流しても動作しない最小定格
+    //  スターデルタ：Δ切替時の突入 1600% で瞬時引外し（定格の750%）が動作しない最小定格
+    function autoMccb(I, start) {
+        for (const at of mccbRatings) {
+            if (start === 'dol') {
+                if (at * (at <= 100 ? 3 : 5) >= 9 * I) return at;
+            } else {
+                if (at * 7.5 >= 16 * I && at * (at <= 100 ? 3 : 5) >= 3 * I) return at;
+            }
+        }
+        return null;
+    }
+    // 接地線の太さ（内線規程 1350-3表 C種・D種、銅）[上限A, mm², 表記]
+    const earthTable = [
+        [20, '2.0', '1.6mm／2mm²'], [30, '2.0', '1.6mm／2mm²'], [50, '3.5', '2.0mm／3.5mm²'],
+        [100, '5.5', '2.6mm／5.5mm²'], [150, '8.0', '8mm²'], [200, '14', '14mm²'],
+        [400, '22', '22mm²'], [600, '38', '38mm²'], [800, '60', '60mm²'], [1000, '60', '60mm²'], [1200, '100', '100mm²']
+    ];
+    const earthFor = at => earthTable.find(r => at <= r[0]) || null;
+
+    const mState = { volt: 200, start: 'dol', par2: { A: false, B: false } };
+    const mKw = $('m-kw');
+
+    function buildKwOptions() {
+        const prev = mKw.value;
+        mKw.innerHTML = motorTable.map((r, i) =>
+            `<option value="${i}">${r[0]} kW（規約電流 ${mState.volt === 200 ? r[1] : r[2]} A）</option>`
+        ).join('') + '<option value="custom">その他（電流を直接入力）</option>';
+        mKw.value = prev && [...mKw.options].some(o => o.value === prev) ? prev : '5';
+    }
+    function buildMccbOptions() {
+        $('m-mccb').innerHTML = '<option value="auto">自動（参考値）</option>' +
+            mccbRatings.map(a => `<option value="${a}">${a} A</option>`).join('');
+    }
+
+    function segInit(id, key, attr, parse) {
+        $(id).querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+            mState[key] = parse(b.dataset[attr]);
+            $(id).querySelectorAll('button').forEach(x => x.classList.toggle('active', x === b));
+            if (key === 'volt') buildKwOptions();
+            motorCalc();
+        }));
+    }
+    function segSet(id, attr, val) {
+        $(id).querySelectorAll('button').forEach(x => x.classList.toggle('active', x.dataset[attr] === String(val)));
+    }
+
+    const numVal = (id, def) => { const v = parseFloat($(id).value); return Number.isFinite(v) ? v : def; };
+    const typeLabel = r => typeInfo[r.type].label;
+
+    // 1区間の判定（par = 並列条数）
+    function evalSection(cableKey, lay, Iline, Ireq, lenM, kVd, derate, vBase, vdLimitV, vdOther, par, parRed, parMin) {
+        const tbl = ampTable[cableKey];
+        const rows = tbl.rows.map(r => {
+            const base = r[lay];
+            if (base == null) return { ...r, na: true, naMsg: 'データなし' };
+            if (par > 1 && parMin && r.a < 50) return { ...r, na: true, naMsg: '並列不可（50mm²未満）' };
+            const ia = base * derate * (par > 1 ? parRed : 1);      // 1条あたり
+            const vd = kVd * lenM * Iline / (1000 * r.a * par);       // 並列で断面積が par 倍
+            const ampOk = ia * par >= Ireq;
+            const vdOk = (vd + vdOther) <= vdLimitV;
+            const maxLen = Math.max(0, Math.floor(((vdLimitV - vdOther) * 1000 * r.a * par) / (kVd * Iline)));
+            return { ...r, ia, vd, vdPct: vd / vBase * 100, ampOk, vdOk, ok: ampOk && vdOk, maxLen };
+        });
+        const pick = rows.find(r => !r.na && r.ok) || null;
+        return { rows, pick, tbl, par, Ireq };
+    }
+
+    // まず1条で選定し、該当なしなら同種ケーブル2条並列で選定
+    //  1条の結果が150sq以上のときは、2条並列での選定に切り替え可能（usePar2 = true で2条を採用）
+    const PAR_SWITCH_SQ = 150;
+    function solveSection(args) {
+        const { cableKey, lay, Iline, Ireq, lenM, kVd, derate, vBase, vdLimitV, vdOther, parRed, parMin, usePar2 } = args;
+        const r1 = evalSection(cableKey, lay, Iline, Ireq, lenM, kVd, derate, vBase, vdLimitV, vdOther, 1, parRed, parMin);
+        const r2 = evalSection(cableKey, lay, Iline, Ireq, lenM, kVd, derate, vBase, vdLimitV, vdOther, 2, parRed, parMin);
+        if (!r1.pick) { r2.reason = 'fallback'; return r2; }
+        if (r1.pick.a >= PAR_SWITCH_SQ && r2.pick) {
+            const alt = { r1, r2 };
+            if (usePar2) { r2.reason = 'chosen'; r2.alt = alt; return r2; }
+            r1.alt = alt; return r1;
+        }
+        return r1;
+    }
+    const totalAmp = res => res.pick ? res.pick.ia * res.par : 0;
+
+    function motorCalc() {
+        const volt = mState.volt, start = mState.start;
+        const isCustom = mKw.value === 'custom';
+        $('m-custom-wrap').hidden = !isCustom;
+        $('m-lenB-wrap').hidden = start !== 'yd';
+        $('m-lenA-label').textContent = start === 'yd' ? '電源〜始動器 こう長 (m)' : 'こう長 (m)';
+
+        let kwLabel, I;
+        if (isCustom) {
+            I = Math.max(0.1, numVal('m-custom-a', 20));
+            kwLabel = '電流指定';
+        } else {
+            const r = motorTable[parseInt(mKw.value, 10)];
+            I = volt === 200 ? r[1] : r[2];
+            kwLabel = `${r[0]} kW`;
+        }
+        $('m-kw-hint').textContent = (start === 'yd' && !isCustom && motorTable[parseInt(mKw.value, 10)][0] < 5.5)
+            ? '※ スターデルタは通常 5.5kW 以上で採用されます' : '';
+
+        const factor = I <= 50 ? 1.25 : 1.1;
+        const temp = numVal('m-temp', 40);
+        const kT = temp >= 90 ? 0 : Math.sqrt((90 - temp) / (90 - 40));
+        const red = Math.min(1, Math.max(0.1, numVal('m-red', 1)));
+        const derate = kT * red;
+        const vdPctLimit = numVal('m-vd', 2);
+        const vdLimitV = volt * vdPctLimit / 100;
+        const cableKey = $('m-cable').value;
+        const lay = $('m-lay').value;
+        const lenA = Math.max(0, numVal('m-lenA', 30));
+        const lenB = Math.max(0, numVal('m-lenB', 10));
+        const parRed = Math.min(1, Math.max(0.1, numVal('m-parred', 1)));
+        const parMin = $('m-parmin').checked;
+
+        // 配線用遮断器・接地線
+        const mccbAuto = autoMccb(I, start);
+        const mccbSel = $('m-mccb').value;
+        const mccb = mccbSel === 'auto' ? mccbAuto : parseInt(mccbSel, 10);
+        const earth = mccb ? earthFor(mccb) : null;
+        $('m-mccb-hint').textContent = mccbAuto ? `参考値 ${mccbAuto}A（${start === 'dol' ? '直入れ' : 'スターデルタ'}）` : '参考値の範囲外';
+
+        // サマリ
+        const Iphase = I / Math.sqrt(3);
+        let html = `
+            <div class="m-chip">電動機<b>${kwLabel}</b></div>
+            <div class="m-chip">規約電流<b>${I} A</b></div>
+            <div class="m-chip">必要許容電流（×${factor}）<b>${(I * factor).toFixed(1)} A</b></div>`;
+        if (start === 'yd') html += `<div class="m-chip">相電流 I/√3<b>${Iphase.toFixed(1)} A</b></div>`;
+        html += `<div class="m-chip">許容電流の補正<b>×${derate.toFixed(3)}</b></div>`;
+        html += `<div class="m-chip">配線用遮断器<b>${mccb ? mccb + ' AT' : '—'}</b></div>`;
+        html += `<div class="m-chip">接地線<b>${earth ? earth[2] : '—'}</b></div>`;
+        $('m-summary').innerHTML = html;
+
+        const common = { cableKey, lay, derate, vBase: volt, vdLimitV, parRed, parMin };
+        const sections = [];
+        if (start === 'dol') {
+            const r = solveSection({ ...common, Iline: I, Ireq: I * factor, lenM: lenA, kVd: 30.8, vdOther: 0, usePar2: mState.par2.A });
+            sections.push({ title: '電源 〜 電動機（直入れ）', sub: `三相3線式／電流 ${I}A、こう長 ${lenA}m`, res: r, baseQty: 1, vdOther: 0, key: 'A' });
+        } else {
+            // ②（始動器〜電動機）は「I/√3 × 係数」と「①の許容電流の60%」の大きい方以上。
+            // ②の電圧降下を①の判定に含めるため、収束するまで繰り返す。
+            let rA = solveSection({ ...common, Iline: I, Ireq: I * factor, lenM: lenA, kVd: 30.8, vdOther: 0, usePar2: mState.par2.A });
+            let rB, reqB = 0, vdB = 0;
+            for (let k = 0; k < 4; k++) {
+                reqB = Math.max(Iphase * factor, 0.6 * totalAmp(rA));
+                rB = solveSection({ ...common, Iline: Iphase, Ireq: reqB, lenM: lenB, kVd: 35.6, vdOther: 0, usePar2: mState.par2.B });
+                vdB = rB.pick ? rB.pick.vd : 0;
+                const rA2 = solveSection({ ...common, Iline: I, Ireq: I * factor, lenM: lenA, kVd: 30.8, vdOther: vdB, usePar2: mState.par2.A });
+                const same = rA2.pick && rA.pick && rA2.pick.sz === rA.pick.sz && rA2.pick.type === rA.pick.type && rA2.par === rA.par;
+                rA = rA2;
+                if (same) break;
+            }
+            const reqBy60 = 0.6 * totalAmp(rA) > Iphase * factor;
+            sections.push({ title: '① 電源 〜 スターデルタ始動器', sub: `三相3線式／電流 ${I}A、こう長 ${lenA}m（電圧降下は②との合計で判定）`, res: rA, baseQty: 1, vdOther: vdB, key: 'A' });
+            sections.push({ title: '② 始動器 〜 電動機（6本）',
+                sub: `U1V1W1／U2V2W2 の2系統／1本あたり Iφ = ${Iphase.toFixed(1)}A、こう長 ${lenB}m<br>必要許容電流 = max(Iφ×${factor} = ${(Iphase * factor).toFixed(1)}A, ①の許容電流×60% = ${(0.6 * totalAmp(rA)).toFixed(1)}A) = <b>${reqB.toFixed(1)}A</b>${reqBy60 ? '（60%規定で決定）' : ''}`,
+                res: rB, baseQty: 2, vdOther: 0, key: 'B' });
+        }
+
+        const wrap = $('m-sections');
+        wrap.innerHTML = '';
+        sections.forEach(sec => {
+            const { rows, pick, tbl, par, Ireq } = sec.res;
+            const qty = sec.baseQty * par;
+            const el = document.createElement('div');
+            el.className = 'm-section';
+            let qtyLabel = '';
+            if (sec.baseQty === 1 && par === 2) qtyLabel = ' × 2条（並列）';
+            else if (sec.baseQty === 2 && par === 1) qtyLabel = ' × 2条';
+            else if (sec.baseQty === 2 && par === 2) qtyLabel = ' × 4条（各系統2条並列）';
+            const alt = sec.res.alt;
+            let toggleHtml = '';
+            if (alt) {
+                const p1 = alt.r1.pick, p2 = alt.r2.pick;
+                const n1 = sec.baseQty, n2 = sec.baseQty * 2;
+                toggleHtml = `<div class="par-toggle">
+                    <span>${PAR_SWITCH_SQ}sq以上のため、2条敷設に切替できます：</span>
+                    <div class="seg">
+                        <button data-par="1" class="${par === 1 ? 'active' : ''}">${n1 > 1 ? '各系統1条' : '1条'}：${typeInfo[p1.type].short} ${p1.sz}sq ×${n1}</button>
+                        <button data-par="2" class="${par === 2 ? 'active' : ''}">${n1 > 1 ? '各系統2条' : '2条並列'}：${typeInfo[p2.type].short} ${p2.sz}sq ×${n2}</button>
+                    </div></div>`;
+            }
+            const parWhy = sec.res.reason === 'chosen'
+                ? `${PAR_SWITCH_SQ}sq以上となるため、2条並列での選定に切り替えています。`
+                : '1条では該当サイズがないため、同種ケーブル2条の並列布設で選定しています。';
+            const parNote = par > 1
+                ? `<div class="par-note">${parWhy}並列時は同一種類・同一太さ・同一長さで布設し、電流が均等に分かれるようにしてください。${parMin ? '（50mm²未満は並列の対象外）' : ''}</div>`
+                : '';
+            let resHtml;
+            if (pick) {
+                const totalVd = pick.vd + (sec.vdOther || 0);
+                resHtml = `<div class="big">${typeLabel(pick)} ${pick.sz}sq${qtyLabel}</div>
+                    <div class="detail">許容電流 ${par > 1 ? `${pick.ia.toFixed(0)}A × ${par} = ${(pick.ia * par).toFixed(0)}A` : `${pick.ia.toFixed(0)}A`}（必要 ${Ireq.toFixed(1)}A）<br>
+                    電圧降下 ${pick.vd.toFixed(2)}V（${pick.vdPct.toFixed(2)}%）${sec.vdOther ? `／②との合計 ${(totalVd).toFixed(2)}V（${(totalVd / volt * 100).toFixed(2)}%）` : ''}</div>
+                    <button class="btn-send">電線管選定に追加（${qty}条）</button>`;
+            } else {
+                resHtml = `<div class="big ng">該当サイズなし</div>
+                    <div class="detail">${tbl.label}では${par > 1 ? '2条並列でも' : ''}条件を満たせません。${cableKey === 'CV3' ? 'CVTへの変更、' : ''}こう長・布設条件の見直しを検討してください。</div>`;
+            }
+            const showType = cableKey === 'AUTO';
+            const rowsHtml = rows.map(r => {
+                const szCell = `${r.sz}${showType ? `<br><span style="font-weight:normal;font-size:11px;color:#718096">${typeInfo[r.type].short}</span>` : ''}`;
+                if (r.na) return `<tr><td>${szCell}</td><td colspan="4" style="color:#a0aec0">${r.naMsg}</td></tr>`;
+                const cls = pick && r.sz === pick.sz && r.type === pick.type ? ' class="pick"' : '';
+                const iaTxt = par > 1 ? `${(r.ia * par).toFixed(0)}<br><span style="font-weight:normal;font-size:11px">${r.ia.toFixed(0)}×${par}</span>` : r.ia.toFixed(0);
+                return `<tr${cls}><td>${szCell}</td>
+                    <td class="${r.ampOk ? 'ok' : 'ng'}">${iaTxt}</td>
+                    <td class="${r.vdOk ? 'ok' : 'ng'}">${r.vd.toFixed(2)}V<br><span style="font-weight:normal;font-size:11px">${r.vdPct.toFixed(2)}%</span></td>
+                    <td>${r.maxLen}m</td>
+                    <td class="${r.ok ? 'ok' : 'ng'}">${r.ok ? '○' : '×'}</td></tr>`;
+            }).join('');
+            el.innerHTML = `<h3>${sec.title}</h3><div class="sub">${sec.sub}</div>
+                ${toggleHtml}
+                ${parNote}
+                <div class="m-result">${resHtml}</div>
+                <div class="m-table-wrap"><table class="m-table">
+                    <thead><tr><th>サイズ(sq)</th><th>許容電流(A)<br>補正後${par > 1 ? '・2条計' : ''}</th><th>電圧降下</th><th>最大こう長</th><th>判定</th></tr></thead>
+                    <tbody>${rowsHtml}</tbody></table></div>`;
+            wrap.appendChild(el);
+            el.querySelectorAll('.par-toggle button').forEach(b => b.addEventListener('click', () => {
+                mState.par2[sec.key] = b.dataset.par === '2';
+                motorCalc();
+            }));
+            const btn = el.querySelector('.btn-send');
+            if (btn) btn.addEventListener('click', () => sendToConduit(typeInfo[pick.type], pick.sz, qty));
+        });
+
+        // 接地線
+        const eEl = document.createElement('div');
+        eEl.className = 'm-section';
+        if (earth) {
+            eEl.innerHTML = `<h3>接地線（アース線）</h3>
+                <div class="sub">配線用遮断器 ${mccb}AT${mccbSel === 'auto' ? '（自動・参考値）' : '（手入力）'} → 内線規程 1350-3表（C種・D種接地工事、銅）</div>
+                <div class="m-result"><div class="big">IV ${earth[1]}sq</div>
+                    <div class="detail">表の値：${earth[2]} 以上（遮断器 ${earth[0]}A以下の区分）${start === 'yd' ? '<br>①②の各配管に1本ずつ必要な場合は、それぞれ追加してください。' : ''}</div>
+                    <button class="btn-send" id="btn-earth">電線管選定に追加（1本）</button></div>
+                <div class="m-table-wrap"><table class="m-table"><thead><tr><th>遮断器の定格</th><th>接地線（銅）</th></tr></thead><tbody>
+                ${earthTable.map(r => `<tr${r === earth ? ' class="pick"' : ''}><td>${r[0]}A以下</td><td>${r[2]}</td></tr>`).join('')}
+                </tbody></table></div>`;
+        } else {
+            eEl.innerHTML = `<h3>接地線（アース線）</h3><div class="m-result"><div class="big ng">選定範囲外</div>
+                <div class="detail">遮断器の定格を手入力してください（1200Aまで対応）。</div></div>`;
+        }
+        wrap.appendChild(eEl);
+        const be = $('btn-earth');
+        if (be) be.addEventListener('click', () => sendToConduit({ groupKey: 'IV', name: sz => `IV ${sz} sq` }, earth[1], 1));
+
+        saveMotorState();
+    }
+
+    // 選定結果を電線管選定シートへ追加
+    function sendToConduit(info, sz, qty) {
+        const name = info.name(sz);
+        const groupList = cableMasterDatabase[info.groupKey];
+        const idx = groupList.findIndex(c => c.name === name);
+        if (idx < 0) { toast(`${name} は電線管シートの外径データにありません`); return; }
+        addCable(info.groupKey, idx, qty);
+        activeGroup = info.groupKey;
+        renderAdder();
+        toast(`${name} ×${qty} を電線管選定に追加しました`);
+    }
+
+    // 状態保存（モーターシート）
+    const MOTOR_KEY = 'conduitSim.motor.v1';
+    const mInputs = ['m-kw', 'm-custom-a', 'm-mccb', 'm-cable', 'm-lay', 'm-temp', 'm-red', 'm-vd', 'm-lenA', 'm-lenB', 'm-parred'];
+    let motorRestoring = true;
+    function saveMotorState() {
+        if (motorRestoring) return;
+        try {
+            const o = { volt: mState.volt, start: mState.start };
+            mInputs.forEach(id => o[id] = $(id).value);
+            o.parmin = $('m-parmin').checked;
+            o.par2 = mState.par2;
+            localStorage.setItem(MOTOR_KEY, JSON.stringify(o));
+        } catch (e) {}
+    }
+    function loadMotorState() {
+        let o = null;
+        try { o = JSON.parse(localStorage.getItem(MOTOR_KEY) || 'null'); } catch (e) {}
+        if (o) {
+            if (o.volt === 200 || o.volt === 400) mState.volt = o.volt;
+            if (o.start === 'dol' || o.start === 'yd') mState.start = o.start;
+        }
+        segSet('m-volt', 'v', mState.volt);
+        segSet('m-start', 's', mState.start);
+        buildKwOptions();
+        buildMccbOptions();
+        if (o) mInputs.forEach(id => {
+            if (o[id] == null) return;
+            const el = $(id);
+            if (el.tagName === 'SELECT' && ![...el.options].some(op => op.value === o[id])) return;
+            el.value = o[id];
+        });
+        if (o && typeof o.parmin === 'boolean') $('m-parmin').checked = o.parmin;
+        if (o && o.par2) mState.par2 = { A: !!o.par2.A, B: !!o.par2.B };
+        motorRestoring = false;
+    }
+
+    segInit('m-volt', 'volt', 'v', v => parseInt(v, 10));
+    segInit('m-start', 'start', 's', v => v);
+    $('m-parmin').addEventListener('change', motorCalc);
+    mInputs.forEach(id => {
+        $(id).addEventListener('input', motorCalc);
+        $(id).addEventListener('change', motorCalc);
+    });
+    // ---- 解説シートの表（アプリ内データから生成） ----
+    function renderGuide() {
+        $('g-motor-table').innerHTML = `<table class="g-table"><thead><tr><th>出力 kW</th>${motorTable.map(r => `<td><b>${r[0]}</b></td>`).join('')}</tr></thead>
+            <tbody><tr><th>200V (A)</th>${motorTable.map(r => `<td>${r[1]}</td>`).join('')}</tr>
+            <tr><th>400V (A)</th>${motorTable.map(r => `<td>${r[2]}</td>`).join('')}</tr></tbody></table>`;
+        const sizes = [...new Set([...cv3Rows, ...cvtRows].map(r => r.sz))];
+        const find = (rows, sz, k) => { const r = rows.find(x => x.sz === sz); return r && r[k] != null ? r[k] : '—'; };
+        $('g-amp-table').innerHTML = `<table class="g-table"><thead><tr><th rowspan="2">サイズ<br>(sq)</th><th colspan="2">CV 3心</th><th colspan="2">CVT</th></tr>
+            <tr><th>気中・暗きょ</th><th>電線管内</th><th>気中・暗きょ</th><th>電線管内</th></tr></thead><tbody>
+            ${sizes.map(sz => `<tr><td><b>${sz}</b></td><td>${find(cv3Rows, sz, 'air')}</td><td>${find(cv3Rows, sz, 'conduit')}</td><td>${find(cvtRows, sz, 'air')}</td><td>${find(cvtRows, sz, 'conduit')}</td></tr>`).join('')}
+            </tbody></table><div style="font-size:12px;color:#718096">単位：A（周囲温度40℃、1条）</div>`;
+        $('g-mccb-table').innerHTML = `<table class="g-table"><thead><tr><th>出力 kW</th><th>200V 直入れ</th><th>200V Y-Δ</th><th>400V 直入れ</th><th>400V Y-Δ</th></tr></thead><tbody>
+            ${motorTable.map(r => `<tr><td><b>${r[0]}</b></td><td>${autoMccb(r[1], 'dol') ?? '—'}</td><td>${autoMccb(r[1], 'yd') ?? '—'}</td><td>${autoMccb(r[2], 'dol') ?? '—'}</td><td>${autoMccb(r[2], 'yd') ?? '—'}</td></tr>`).join('')}
+            </tbody></table><div style="font-size:12px;color:#718096">単位：A（上の考え方による計算値。スターデルタは通常5.5kW以上で採用）</div>`;
+        $('g-earth-table').innerHTML = `<table class="g-table"><thead><tr><th>過電流遮断器の定格</th><th>接地線（銅）</th></tr></thead><tbody>
+            ${earthTable.map(r => `<tr><td>${r[0]}A以下</td><td>${r[2]}</td></tr>`).join('')}</tbody></table>`;
+    }
+    renderGuide();
+    document.querySelectorAll('.g-toc a').forEach(a => a.addEventListener('click', e => {
+        e.preventDefault();
+        const d = $(a.dataset.g);
+        d.open = true;
+        d.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }));
+
+    loadMotorState();
+    showSheet(location.hash.slice(1) || 'conduit');
+
+    // ---- PWA：オフライン動作用 Service Worker の登録 ----
+    // https で配信されたときだけ有効（ファイル直開きや埋め込み表示では何もしない）
+    if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+        window.addEventListener('load', () => {
+            try {
+                navigator.serviceWorker.register('./sw.js').catch(() => {});
+            } catch (e) { /* 使えない環境では無視 */ }
+        });
+    }
+</script>
+
+</body>
+</html>
